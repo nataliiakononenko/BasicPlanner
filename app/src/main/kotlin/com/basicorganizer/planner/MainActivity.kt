@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         monthView = findViewById(R.id.month_view)
         fabAdd = findViewById(R.id.fab_add)
 
-        fabAdd.setOnClickListener { showAddOptionsDialog() }
+        fabAdd.setOnClickListener { showTodoDialog(null) }
     }
 
     private fun setupToolbar() {
@@ -232,11 +232,20 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         hoursContainer.removeAllViews()
         eventsOverlay.removeAllViews()
 
-        // Create hour lines (6 AM to 11 PM)
-        for (hour in 6..23) {
+        // Create hour lines (00:00 to 23:00)
+        for (hour in 0..23) {
             val hourView = LayoutInflater.from(this).inflate(R.layout.item_hour_line, hoursContainer, false)
             val tvHour = hourView.findViewById<TextView>(R.id.tv_hour)
             tvHour.text = String.format("%02d:00", hour)
+            
+            // Add long-click to create event at this hour
+            hourView.setOnLongClickListener {
+                val startTime = String.format("%02d:00", hour)
+                val endTime = String.format("%02d:00", if (hour < 23) hour + 1 else 23)
+                showEventDialog(null, startTime, endTime)
+                true
+            }
+            
             hoursContainer.addView(hourView)
         }
 
@@ -257,39 +266,37 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             val currentHour = today.get(Calendar.HOUR_OF_DAY)
             val currentMinute = today.get(Calendar.MINUTE)
             
-            // Only show if within displayed hours (6 AM to 11 PM)
-            if (currentHour in 6..23) {
-                eventsOverlay.post {
-                    // Account for the 8dp padding on hours_container
-                    val containerPadding = (8 * resources.displayMetrics.density).toInt()
-                    // Account for the 8dp marginTop on the hour line View
-                    val hourLineOffset = (8 * resources.displayMetrics.density).toInt()
-                    val hourHeight = 60f // dp per hour
-                    
-                    // Calculate position: hours from 6 AM + minutes within the hour + offsets
-                    val topMargin = ((currentHour - 6) * hourHeight + (currentMinute / 60f * hourHeight))
-                    
-                    val currentTimeLine = View(this)
-                    currentTimeLine.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary))
-                    
-                    val params = FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        (2 * resources.displayMetrics.density).toInt() // 2dp height
-                    )
-                    // Add container padding and hour line offset to align properly
-                    params.topMargin = (topMargin * resources.displayMetrics.density).toInt() + containerPadding + hourLineOffset
-                    // Remove the 50dp left margin so line spans full width
-                    params.marginStart = -(50 * resources.displayMetrics.density).toInt()
-                    currentTimeLine.layoutParams = params
-                    
-                    eventsOverlay.addView(currentTimeLine)
-                }
+            // Show current time indicator for any hour
+            eventsOverlay.post {
+                // Account for the 8dp padding on hours_container
+                val containerPadding = (8 * resources.displayMetrics.density).toInt()
+                // Account for the 8dp marginTop on the hour line View
+                val hourLineOffset = (8 * resources.displayMetrics.density).toInt()
+                val hourHeight = 40f // dp per hour (reduced from 60)
+                
+                // Calculate position: hours from midnight + minutes within the hour + offsets
+                val topMargin = (currentHour * hourHeight + (currentMinute / 60f * hourHeight))
+                
+                val currentTimeLine = View(this)
+                currentTimeLine.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary))
+                
+                val params = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    (2 * resources.displayMetrics.density).toInt() // 2dp height
+                )
+                // Add container padding and hour line offset to align properly
+                params.topMargin = (topMargin * resources.displayMetrics.density).toInt() + containerPadding + hourLineOffset
+                // Don't extend past the hour lines - line stays within events_overlay margin
+                currentTimeLine.layoutParams = params
+                
+                eventsOverlay.addView(currentTimeLine)
             }
         }
 
-        // Scroll to 7 AM
+        // Scroll to 7 AM (7 hours from midnight at 40dp per hour)
         dayView.findViewById<ScrollView>(R.id.scroll_hours).post {
-            dayView.findViewById<ScrollView>(R.id.scroll_hours).scrollTo(0, 60 * 1) // 1 hour from 6 AM
+            val scrollPosition = (7 * 40 * resources.displayMetrics.density).toInt()
+            dayView.findViewById<ScrollView>(R.id.scroll_hours).scrollTo(0, scrollPosition)
         }
 
         // Load todos
@@ -310,8 +317,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val endHour = endParts[0].toIntOrNull() ?: startHour + 1
         val endMin = endParts.getOrNull(1)?.toIntOrNull() ?: 0
 
-        val hourHeight = 60 // dp per hour
-        val topMargin = ((startHour - 6) * hourHeight + (startMin * hourHeight / 60))
+        val hourHeight = 40 // dp per hour (reduced from 60)
+        val topMargin = (startHour * hourHeight + (startMin * hourHeight / 60))
         val height = ((endHour - startHour) * hourHeight + ((endMin - startMin) * hourHeight / 60))
 
         // Check for overlapping events
@@ -570,7 +577,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             .show()
     }
 
-    private fun showEventDialog(event: Event?) {
+    private fun showEventDialog(event: Event?, prefilledStartTime: String? = null, prefilledEndTime: String? = null) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_event, null)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_title)
         val etNotes = dialogView.findViewById<EditText>(R.id.et_notes)
@@ -581,8 +588,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val rgRecurrenceEnd = dialogView.findViewById<RadioGroup>(R.id.rg_recurrence_end)
         val tvEndDate = dialogView.findViewById<TextView>(R.id.tv_end_date)
 
-        var startTime = event?.startTime ?: "09:00"
-        var endTime = event?.endTime ?: "10:00"
+        var startTime = event?.startTime ?: prefilledStartTime ?: "09:00"
+        var endTime = event?.endTime ?: prefilledEndTime ?: "10:00"
         var endDate = event?.recurrenceEndDate
 
         etTitle.setText(event?.title ?: "")
