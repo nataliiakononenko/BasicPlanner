@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private fun setupToolbar() {
         toolbar.setTitleTextColor(ContextCompat.getColor(this, R.color.white))
         setSupportActionBar(toolbar)
-        supportActionBar?.title = getString(R.string.app_name)
+        supportActionBar?.title = ""
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_menu)
 
@@ -226,6 +226,45 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             addEventToOverlay(eventsOverlay, event, events)
         }
 
+        // Add current time indicator if viewing today
+        val today = Calendar.getInstance()
+        val isToday = currentDate.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                      currentDate.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+        
+        if (isToday) {
+            val currentHour = today.get(Calendar.HOUR_OF_DAY)
+            val currentMinute = today.get(Calendar.MINUTE)
+            
+            // Only show if within displayed hours (6 AM to 11 PM)
+            if (currentHour in 6..23) {
+                eventsOverlay.post {
+                    // Account for the 8dp padding on hours_container
+                    val containerPadding = (8 * resources.displayMetrics.density).toInt()
+                    // Account for the 8dp marginTop on the hour line View
+                    val hourLineOffset = (8 * resources.displayMetrics.density).toInt()
+                    val hourHeight = 60f // dp per hour
+                    
+                    // Calculate position: hours from 6 AM + minutes within the hour + offsets
+                    val topMargin = ((currentHour - 6) * hourHeight + (currentMinute / 60f * hourHeight))
+                    
+                    val currentTimeLine = View(this)
+                    currentTimeLine.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary))
+                    
+                    val params = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        (2 * resources.displayMetrics.density).toInt() // 2dp height
+                    )
+                    // Add container padding and hour line offset to align properly
+                    params.topMargin = (topMargin * resources.displayMetrics.density).toInt() + containerPadding + hourLineOffset
+                    // Remove the 50dp left margin so line spans full width
+                    params.marginStart = -(50 * resources.displayMetrics.density).toInt()
+                    currentTimeLine.layoutParams = params
+                    
+                    eventsOverlay.addView(currentTimeLine)
+                }
+            }
+        }
+
         // Scroll to 7 AM
         dayView.findViewById<ScrollView>(R.id.scroll_hours).post {
             dayView.findViewById<ScrollView>(R.id.scroll_hours).scrollTo(0, 60 * 1) // 1 hour from 6 AM
@@ -308,6 +347,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
 
         val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
         val dateFormat = SimpleDateFormat("d", Locale.getDefault())
+        val today = Calendar.getInstance()
 
         for (i in 0..6) {
             val dayCal = weekStart.clone() as Calendar
@@ -317,6 +357,15 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             val card = dayCards[i]
             card.findViewById<TextView>(R.id.tv_day_name).text = dayNames[i]
             card.findViewById<TextView>(R.id.tv_day_number).text = dateFormat.format(dayCal.time)
+            
+            // Add border to current day
+            val isToday = dayCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                          dayCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+            if (isToday) {
+                card.setBackgroundResource(R.drawable.border_current_day)
+            } else {
+                card.setBackgroundResource(0) // Clear background
+            }
 
             // Show todo indicator
             val hasTodos = database.hasTodosForDate(dateStr)
@@ -342,6 +391,39 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 moreView.textSize = 10f
                 moreView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
                 eventsContainer.addView(moreView)
+            }
+            
+            // Add current time indicator if this is today
+            val timeIndicatorOverlay = card.findViewById<FrameLayout>(R.id.time_indicator_overlay)
+            timeIndicatorOverlay.removeAllViews()
+            
+            if (isToday) {
+                val currentHour = today.get(Calendar.HOUR_OF_DAY)
+                val currentMinute = today.get(Calendar.MINUTE)
+                
+                // Show time indicator (6 AM to 11 PM range, same as day view)
+                if (currentHour in 6..23) {
+                    // Calculate position based on time
+                    val totalMinutesFromStart = (currentHour - 6) * 60 + currentMinute
+                    val totalDisplayMinutes = (23 - 6 + 1) * 60 // 6 AM to 11 PM
+                    
+                    card.post {
+                        val cardHeight = timeIndicatorOverlay.height
+                        val topPosition = (totalMinutesFromStart.toFloat() / totalDisplayMinutes.toFloat() * cardHeight).toInt()
+                        
+                        val currentTimeLine = View(this)
+                        currentTimeLine.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary))
+                        
+                        val params = FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            (2 * resources.displayMetrics.density).toInt() // 2dp height
+                        )
+                        params.topMargin = topPosition
+                        currentTimeLine.layoutParams = params
+                        
+                        timeIndicatorOverlay.addView(currentTimeLine)
+                    }
+                }
             }
 
             card.setOnClickListener {
@@ -407,6 +489,9 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             monthGrid.addView(emptyView)
         }
 
+        // Get today's date for comparison
+        val today = Calendar.getInstance()
+        
         // Add day cells
         for (day in 1..daysInMonth) {
             calendar.set(Calendar.DAY_OF_MONTH, day)
@@ -429,9 +514,11 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 tvTodoCount.visibility = View.GONE
             }
 
-            // Highlight if has events
-            if (hasEvents) {
-                dayView.setBackgroundColor(ContextCompat.getColor(this, R.color.day_has_events))
+            // Add border to current day
+            val isToday = calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                          calendar.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+            if (isToday) {
+                dayView.setBackgroundResource(R.drawable.border_current_day)
             }
 
             val dayCopy = calendar.clone() as Calendar
