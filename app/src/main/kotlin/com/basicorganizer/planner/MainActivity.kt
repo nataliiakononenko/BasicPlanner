@@ -293,9 +293,9 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             }
         }
 
-        // Scroll to 7 AM (7 hours from midnight at 40dp per hour)
+        // Scroll to 8 AM (8 hours from midnight at 40dp per hour)
         dayView.findViewById<ScrollView>(R.id.scroll_hours).post {
-            val scrollPosition = (7 * 40 * resources.displayMetrics.density).toInt()
+            val scrollPosition = (8 * 40 * resources.displayMetrics.density).toInt()
             dayView.findViewById<ScrollView>(R.id.scroll_hours).scrollTo(0, scrollPosition)
         }
 

@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:padding="8dp"
+    android:padding="4dp"
     android:clickable="true"
     android:focusable="true"
     android:background="?attr/selectableItemBackground">
@@ -13,16 +13,18 @@
     <CheckBox
         android:id="@+id/cb_todo"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:minWidth="0dp"
+        android:minHeight="0dp" />
 
     <TextView
         android:id="@+id/tv_todo_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="14sp"
+        android:textSize="12sp"
         android:textColor="@color/text_primary"
-        android:layout_marginStart="8dp" />
+        android:layout_marginStart="4dp" />
 
     <ImageView
         android:id="@+id/iv_move_indicator"
