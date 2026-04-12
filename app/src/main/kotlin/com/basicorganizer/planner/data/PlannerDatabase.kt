@@ -306,4 +306,68 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     fun countTodosForDate(date: String): Int {
         return getTodosForDate(date).count { !it.isCompleted }
     }
+
+    fun getTodosForMonth(monthYear: String): List<TodoItem> {
+        val todos = mutableListOf<TodoItem>()
+        val db = readableDatabase
+        
+        val cursor = db.query(
+            TABLE_TODOS,
+            null,
+            "$KEY_SCOPE = ? AND $KEY_DATE = ?",
+            arrayOf(TodoScope.MONTH.name, monthYear),
+            null, null,
+            "$KEY_IS_COMPLETED ASC, $KEY_CREATED_AT DESC"
+        )
+        
+        cursor.use {
+            while (it.moveToNext()) {
+                todos.add(TodoItem(
+                    id = it.getLong(it.getColumnIndexOrThrow(KEY_ID)),
+                    title = it.getString(it.getColumnIndexOrThrow(KEY_TITLE)),
+                    date = it.getString(it.getColumnIndexOrThrow(KEY_DATE)),
+                    weekStartDate = it.getString(it.getColumnIndexOrThrow(KEY_WEEK_START_DATE)),
+                    scope = TodoScope.valueOf(it.getString(it.getColumnIndexOrThrow(KEY_SCOPE))),
+                    moveToNext = it.getInt(it.getColumnIndexOrThrow(KEY_MOVE_TO_NEXT)) == 1,
+                    isCompleted = it.getInt(it.getColumnIndexOrThrow(KEY_IS_COMPLETED)) == 1,
+                    completedDate = it.getString(it.getColumnIndexOrThrow(KEY_COMPLETED_DATE)),
+                    createdAt = it.getString(it.getColumnIndexOrThrow(KEY_CREATED_AT))
+                ))
+            }
+        }
+        
+        return todos
+    }
+
+    fun getTodosForYear(year: String): List<TodoItem> {
+        val todos = mutableListOf<TodoItem>()
+        val db = readableDatabase
+        
+        val cursor = db.query(
+            TABLE_TODOS,
+            null,
+            "$KEY_SCOPE = ? AND $KEY_DATE = ?",
+            arrayOf(TodoScope.YEAR.name, year),
+            null, null,
+            "$KEY_IS_COMPLETED ASC, $KEY_CREATED_AT DESC"
+        )
+        
+        cursor.use {
+            while (it.moveToNext()) {
+                todos.add(TodoItem(
+                    id = it.getLong(it.getColumnIndexOrThrow(KEY_ID)),
+                    title = it.getString(it.getColumnIndexOrThrow(KEY_TITLE)),
+                    date = it.getString(it.getColumnIndexOrThrow(KEY_DATE)),
+                    weekStartDate = it.getString(it.getColumnIndexOrThrow(KEY_WEEK_START_DATE)),
+                    scope = TodoScope.valueOf(it.getString(it.getColumnIndexOrThrow(KEY_SCOPE))),
+                    moveToNext = it.getInt(it.getColumnIndexOrThrow(KEY_MOVE_TO_NEXT)) == 1,
+                    isCompleted = it.getInt(it.getColumnIndexOrThrow(KEY_IS_COMPLETED)) == 1,
+                    completedDate = it.getString(it.getColumnIndexOrThrow(KEY_COMPLETED_DATE)),
+                    createdAt = it.getString(it.getColumnIndexOrThrow(KEY_CREATED_AT))
+                ))
+            }
+        }
+        
+        return todos
+    }
 }

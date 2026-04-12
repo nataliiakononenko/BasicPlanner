@@ -74,7 +74,14 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         yearView = findViewById(R.id.year_view)
         fabAdd = findViewById(R.id.fab_add)
 
-        fabAdd.setOnClickListener { showTodoDialog(null) }
+        fabAdd.setOnClickListener { 
+            when (currentViewMode) {
+                ViewMode.DAY -> showTodoDialog(null)
+                ViewMode.WEEK -> showTodoDialog(null)
+                ViewMode.MONTH -> showMonthTodoDialog()
+                ViewMode.YEAR -> showYearTodoDialog()
+            }
+        }
     }
 
     private fun setupToolbar() {
@@ -105,6 +112,10 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         }
         navView.findViewById<View>(R.id.nav_month_view).setOnClickListener {
             switchToView(ViewMode.MONTH)
+            drawerLayout.closeDrawer(GravityCompat.START)
+        }
+        navView.findViewById<View>(R.id.nav_year_view).setOnClickListener {
+            switchToView(ViewMode.YEAR)
             drawerLayout.closeDrawer(GravityCompat.START)
         }
         updateViewButtons()
@@ -734,6 +745,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private fun loadMonthView() {
         val monthContainer = monthView.findViewById<LinearLayout>(R.id.month_container)
         val weekdayHeaders = monthView.findViewById<LinearLayout>(R.id.weekday_headers)
+        val rvMonthTodos = monthView.findViewById<RecyclerView>(R.id.rv_month_todos)
+        val tvNoMonthTodos = monthView.findViewById<TextView>(R.id.tv_no_month_todos)
         
         monthContainer.removeAllViews()
         weekdayHeaders.removeAllViews()
@@ -784,11 +797,12 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             weekNumView.text = weekNumber.toString()
             weekNumView.textSize = 10f
             weekNumView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-            weekNumView.gravity = android.view.Gravity.CENTER
-            weekNumView.layoutParams = LinearLayout.LayoutParams(
+            weekNumView.gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.CENTER_HORIZONTAL
+            val weekNumParams = LinearLayout.LayoutParams(
                 (24 * resources.displayMetrics.density).toInt(),
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT
             )
+            weekNumView.layoutParams = weekNumParams
             weekRow.addView(weekNumView)
             
             // Add 7 day cells for this week
@@ -833,14 +847,27 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             
             monthContainer.addView(weekRow)
         }
+        
+        // Load monthly goals
+        val monthYear = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(currentDate.time)
+        val monthTodos = database.getTodosForMonth(monthYear)
+        rvMonthTodos.layoutManager = LinearLayoutManager(this)
+        rvMonthTodos.adapter = TodoAdapter(this, monthTodos, this)
+        
+        tvNoMonthTodos.visibility = if (monthTodos.isEmpty()) View.VISIBLE else View.GONE
+        rvMonthTodos.visibility = if (monthTodos.isEmpty()) View.GONE else View.VISIBLE
     }
 
     private fun loadYearView() {
         val yearGrid = yearView.findViewById<GridLayout>(R.id.year_grid)
+        val rvYearTodos = yearView.findViewById<RecyclerView>(R.id.rv_year_todos)
+        val tvNoYearTodos = yearView.findViewById<TextView>(R.id.tv_no_year_todos)
+        
         yearGrid.removeAllViews()
 
         val year = currentDate.get(Calendar.YEAR)
         val monthNames = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        val today = Calendar.getInstance()
 
         for (month in 0..11) {
             val monthCal = Calendar.getInstance()
@@ -849,48 +876,103 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             monthCal.set(Calendar.DAY_OF_MONTH, 1)
 
             val monthView = LayoutInflater.from(this).inflate(R.layout.item_year_month, yearGrid, false)
-            monthView.findViewById<TextView>(R.id.tv_month_name).text = monthNames[month]
+            val tvMonthName = monthView.findViewById<TextView>(R.id.tv_month_name)
+            tvMonthName.text = monthNames[month]
+            
+            // Click month name to navigate to that month
+            val monthCopy = monthCal.clone() as Calendar
+            tvMonthName.setOnClickListener {
+                currentDate.time = monthCopy.time
+                switchToView(ViewMode.MONTH)
+            }
 
-            val miniGrid = monthView.findViewById<GridLayout>(R.id.mini_month_grid)
-            miniGrid.removeAllViews()
+            val miniContainer = monthView.findViewById<LinearLayout>(R.id.mini_month_container)
+            miniContainer.removeAllViews()
 
             monthCal.firstDayOfWeek = firstDayOfWeek
             val daysInMonth = monthCal.getActualMaximum(Calendar.DAY_OF_MONTH)
             var firstDayOffset = monthCal.get(Calendar.DAY_OF_WEEK) - firstDayOfWeek
             if (firstDayOffset < 0) firstDayOffset += 7
 
-            // Add empty cells
-            for (i in 0 until firstDayOffset) {
-                val emptyView = View(this)
-                val params = GridLayout.LayoutParams()
-                params.width = (16 * resources.displayMetrics.density).toInt()
-                params.height = (16 * resources.displayMetrics.density).toInt()
-                params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                emptyView.layoutParams = params
-                miniGrid.addView(emptyView)
-            }
-
-            // Add day cells (just numbers, no indicators for simplicity)
-            for (day in 1..daysInMonth) {
-                val dayView = TextView(this)
-                dayView.text = day.toString()
-                dayView.textSize = 8f
-                dayView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-                dayView.gravity = android.view.Gravity.CENTER
-
-                val params = GridLayout.LayoutParams()
-                params.width = (16 * resources.displayMetrics.density).toInt()
-                params.height = (16 * resources.displayMetrics.density).toInt()
-                params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                dayView.layoutParams = params
-                miniGrid.addView(dayView)
-            }
-
-            // Click on month to navigate to that month
-            val monthCopy = monthCal.clone() as Calendar
-            monthView.setOnClickListener {
-                currentDate.time = monthCopy.time
-                switchToView(ViewMode.MONTH)
+            // Build mini calendar week by week with week numbers
+            var currentDay = 1 - firstDayOffset
+            while (currentDay <= daysInMonth) {
+                val weekRow = LinearLayout(this)
+                weekRow.orientation = LinearLayout.HORIZONTAL
+                weekRow.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                
+                // Add week number
+                monthCal.set(Calendar.DAY_OF_MONTH, maxOf(1, currentDay))
+                val weekNumber = monthCal.get(Calendar.WEEK_OF_YEAR)
+                val weekNumView = TextView(this)
+                weekNumView.text = weekNumber.toString()
+                weekNumView.textSize = 6f
+                weekNumView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                weekNumView.gravity = android.view.Gravity.CENTER
+                weekNumView.setPadding(2, 0, 2, 0)
+                val weekNumParams = LinearLayout.LayoutParams(
+                    (12 * resources.displayMetrics.density).toInt(),
+                    (12 * resources.displayMetrics.density).toInt()
+                )
+                weekNumView.layoutParams = weekNumParams
+                
+                // Click week number to navigate to that week
+                val weekCal = monthCal.clone() as Calendar
+                weekNumView.setOnClickListener {
+                    currentDate.time = weekCal.time
+                    switchToView(ViewMode.WEEK)
+                }
+                weekRow.addView(weekNumView)
+                
+                // Add 7 day cells
+                for (dayOfWeek in 0..6) {
+                    if (currentDay < 1 || currentDay > daysInMonth) {
+                        // Empty cell
+                        val emptyView = View(this)
+                        val params = LinearLayout.LayoutParams(
+                            (12 * resources.displayMetrics.density).toInt(),
+                            (12 * resources.displayMetrics.density).toInt()
+                        )
+                        emptyView.layoutParams = params
+                        weekRow.addView(emptyView)
+                    } else {
+                        // Day cell
+                        monthCal.set(Calendar.DAY_OF_MONTH, currentDay)
+                        
+                        val dayView = TextView(this)
+                        dayView.text = currentDay.toString()
+                        dayView.textSize = 7f
+                        dayView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                        dayView.gravity = android.view.Gravity.CENTER
+                        
+                        // Highlight current day
+                        val isToday = monthCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                                      monthCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+                        if (isToday) {
+                            dayView.setBackgroundResource(R.drawable.border_current_day)
+                        }
+                        
+                        // Click day to navigate to that day
+                        val dayCopy = monthCal.clone() as Calendar
+                        dayView.setOnClickListener {
+                            currentDate.time = dayCopy.time
+                            switchToView(ViewMode.DAY)
+                        }
+                        
+                        val params = LinearLayout.LayoutParams(
+                            (12 * resources.displayMetrics.density).toInt(),
+                            (12 * resources.displayMetrics.density).toInt()
+                        )
+                        dayView.layoutParams = params
+                        weekRow.addView(dayView)
+                    }
+                    currentDay++
+                }
+                
+                miniContainer.addView(weekRow)
             }
 
             val params = GridLayout.LayoutParams()
@@ -901,6 +983,15 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             monthView.layoutParams = params
             yearGrid.addView(monthView)
         }
+        
+        // Load yearly goals/to-dos
+        val yearStr = year.toString()
+        val yearTodos = database.getTodosForYear(yearStr)
+        rvYearTodos.layoutManager = LinearLayoutManager(this)
+        rvYearTodos.adapter = TodoAdapter(this, yearTodos, this)
+        
+        tvNoYearTodos.visibility = if (yearTodos.isEmpty()) View.VISIBLE else View.GONE
+        rvYearTodos.visibility = if (yearTodos.isEmpty()) View.GONE else View.VISIBLE
     }
 
     private fun showAddOptionsDialog() {
@@ -1116,5 +1207,85 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
 
     override fun onTodoLongClick(todo: TodoItem) {
         showTodoDialog(todo)
+    }
+
+    private fun showMonthTodoDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
+        val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
+        val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
+        
+        cbMoveToNext.text = "Move to next month if not completed"
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Add Monthly Goal")
+            .setView(dialogView)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val title = etTitle.text.toString().trim()
+                if (title.isNotEmpty()) {
+                    val monthYear = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(currentDate.time)
+                    val newTodo = TodoItem(
+                        title = title,
+                        date = monthYear,
+                        weekStartDate = null,
+                        scope = TodoScope.MONTH,
+                        moveToNext = cbMoveToNext.isChecked,
+                        createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                    )
+                    database.addTodo(newTodo)
+                    loadData()
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.setOnShowListener {
+            etTitle.requestFocus()
+            etTitle.postDelayed({
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(etTitle, InputMethodManager.SHOW_FORCED)
+            }, 100)
+        }
+        dialog.show()
+    }
+
+    private fun showYearTodoDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
+        val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
+        val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
+        
+        cbMoveToNext.text = "Move to next year if not completed"
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Add Yearly Goal")
+            .setView(dialogView)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val title = etTitle.text.toString().trim()
+                if (title.isNotEmpty()) {
+                    val year = currentDate.get(Calendar.YEAR).toString()
+                    val newTodo = TodoItem(
+                        title = title,
+                        date = year,
+                        weekStartDate = null,
+                        scope = TodoScope.YEAR,
+                        moveToNext = cbMoveToNext.isChecked,
+                        createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                    )
+                    database.addTodo(newTodo)
+                    loadData()
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.setOnShowListener {
+            etTitle.requestFocus()
+            etTitle.postDelayed({
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(etTitle, InputMethodManager.SHOW_FORCED)
+            }, 100)
+        }
+        dialog.show()
     }
 }

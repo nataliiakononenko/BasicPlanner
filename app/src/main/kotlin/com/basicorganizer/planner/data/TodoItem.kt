@@ -2,7 +2,9 @@ package com.basicorganizer.planner.data
 
 enum class TodoScope {
     DAY,
-    WEEK
+    WEEK,
+    MONTH,
+    YEAR
 }
 
 data class TodoItem(

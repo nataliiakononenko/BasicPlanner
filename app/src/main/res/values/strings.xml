@@ -6,6 +6,7 @@
     <string name="view_day">Day</string>
     <string name="view_week">Week</string>
     <string name="view_month">Month</string>
+    <string name="view_year">Year</string>
     
     <string name="add_event">Add Event</string>
     <string name="edit_event">Edit Event</string>

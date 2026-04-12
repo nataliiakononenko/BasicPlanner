@@ -5,10 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="4dp"
-    android:gravity="center"
-    android:clickable="true"
-    android:focusable="true"
-    android:background="?attr/selectableItemBackground">
+    android:gravity="center">
 
     <TextView
         android:id="@+id/tv_month_name"
@@ -17,12 +14,15 @@
         android:textSize="14sp"
         android:textStyle="bold"
         android:textColor="@color/text_primary"
-        android:paddingBottom="4dp" />
+        android:paddingBottom="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackground" />
 
-    <GridLayout
-        android:id="@+id/mini_month_grid"
+    <LinearLayout
+        android:id="@+id/mini_month_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:columnCount="7" />
+        android:orientation="vertical" />
 
 </LinearLayout>
