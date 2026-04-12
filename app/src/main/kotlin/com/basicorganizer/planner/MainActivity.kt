@@ -400,26 +400,96 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             val hasTodos = database.hasTodosForDate(dateStr)
             card.findViewById<View>(R.id.indicator_todos).visibility = if (hasTodos) View.VISIBLE else View.GONE
 
-            // Load events
-            val eventsContainer = card.findViewById<LinearLayout>(R.id.events_container)
-            eventsContainer.removeAllViews()
-            
+            // Load events into time chunks
             val events = database.getEventsForDate(dateStr)
-            for (event in events.take(3)) {
-                val eventView = LayoutInflater.from(this).inflate(R.layout.item_event_small, eventsContainer, false)
-                eventView.findViewById<TextView>(R.id.tv_event).text = "${event.startTime} ${event.title}"
-                eventView.setOnClickListener { 
-                    currentDate.time = dayCal.time
-                    showEventDialog(event)
+            val isWeekend = i >= 5 // Saturday (5) and Sunday (6)
+            
+            if (isWeekend) {
+                // Weekend: 2 chunks (8-14, 14-20)
+                val chunk8_14 = card.findViewById<LinearLayout>(R.id.events_8_14)
+                val chunk14_20 = card.findViewById<LinearLayout>(R.id.events_14_20)
+                
+                chunk8_14?.removeAllViews()
+                chunk14_20?.removeAllViews()
+                
+                // Distribute events to appropriate time chunks
+                for (event in events) {
+                    val startHour = event.startTime.split(":")[0].toIntOrNull() ?: 0
+                    val container = when {
+                        startHour in 8..13 -> chunk8_14
+                        startHour in 14..19 -> chunk14_20
+                        else -> null
+                    }
+                    
+                    container?.let {
+                        val eventView = LayoutInflater.from(this).inflate(R.layout.item_event_small, it, false)
+                        eventView.findViewById<TextView>(R.id.tv_event).text = "${event.startTime} ${event.title}"
+                        eventView.setOnClickListener { 
+                            currentDate.time = dayCal.time
+                            showEventDialog(event)
+                        }
+                        it.addView(eventView)
+                    }
                 }
-                eventsContainer.addView(eventView)
-            }
-            if (events.size > 3) {
-                val moreView = TextView(this)
-                moreView.text = "+${events.size - 3} more"
-                moreView.textSize = 10f
-                moreView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
-                eventsContainer.addView(moreView)
+                
+                // Add long-click listeners to weekend time chunks
+                card.findViewById<View>(R.id.chunk_8_14)?.setOnLongClickListener {
+                    currentDate.time = dayCal.time
+                    showEventDialog(null, "08:00", "14:00")
+                    true
+                }
+                card.findViewById<View>(R.id.chunk_14_20)?.setOnLongClickListener {
+                    currentDate.time = dayCal.time
+                    showEventDialog(null, "14:00", "20:00")
+                    true
+                }
+            } else {
+                // Weekday: 3 chunks (8-12, 12-16, 16-20)
+                val chunk8_12 = card.findViewById<LinearLayout>(R.id.events_8_12)
+                val chunk12_16 = card.findViewById<LinearLayout>(R.id.events_12_16)
+                val chunk16_20 = card.findViewById<LinearLayout>(R.id.events_16_20)
+                
+                chunk8_12?.removeAllViews()
+                chunk12_16?.removeAllViews()
+                chunk16_20?.removeAllViews()
+                
+                // Distribute events to appropriate time chunks
+                for (event in events) {
+                    val startHour = event.startTime.split(":")[0].toIntOrNull() ?: 0
+                    val container = when {
+                        startHour in 8..11 -> chunk8_12
+                        startHour in 12..15 -> chunk12_16
+                        startHour in 16..19 -> chunk16_20
+                        else -> null
+                    }
+                    
+                    container?.let {
+                        val eventView = LayoutInflater.from(this).inflate(R.layout.item_event_small, it, false)
+                        eventView.findViewById<TextView>(R.id.tv_event).text = "${event.startTime} ${event.title}"
+                        eventView.setOnClickListener { 
+                            currentDate.time = dayCal.time
+                            showEventDialog(event)
+                        }
+                        it.addView(eventView)
+                    }
+                }
+                
+                // Add long-click listeners to weekday time chunks
+                card.findViewById<View>(R.id.chunk_8_12)?.setOnLongClickListener {
+                    currentDate.time = dayCal.time
+                    showEventDialog(null, "08:00", "12:00")
+                    true
+                }
+                card.findViewById<View>(R.id.chunk_12_16)?.setOnLongClickListener {
+                    currentDate.time = dayCal.time
+                    showEventDialog(null, "12:00", "16:00")
+                    true
+                }
+                card.findViewById<View>(R.id.chunk_16_20)?.setOnLongClickListener {
+                    currentDate.time = dayCal.time
+                    showEventDialog(null, "16:00", "20:00")
+                    true
+                }
             }
             
             // Add current time indicator if this is today
@@ -430,11 +500,11 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val currentHour = today.get(Calendar.HOUR_OF_DAY)
                 val currentMinute = today.get(Calendar.MINUTE)
                 
-                // Show time indicator (6 AM to 11 PM range, same as day view)
-                if (currentHour in 6..23) {
-                    // Calculate position based on time
-                    val totalMinutesFromStart = (currentHour - 6) * 60 + currentMinute
-                    val totalDisplayMinutes = (23 - 6 + 1) * 60 // 6 AM to 11 PM
+                // Show time indicator (8 AM to 8 PM range for time chunks)
+                if (currentHour in 8..19) {
+                    // Calculate position based on time chunks
+                    val totalMinutesFromStart = (currentHour - 8) * 60 + currentMinute
+                    val totalDisplayMinutes = (20 - 8) * 60 // 8 AM to 8 PM
                     
                     card.post {
                         val cardHeight = timeIndicatorOverlay.height

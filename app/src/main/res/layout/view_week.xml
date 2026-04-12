@@ -68,14 +68,14 @@
 
             <include
                 android:id="@+id/day_saturday"
-                layout="@layout/item_week_day_card"
+                layout="@layout/item_week_day_card_weekend"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="0.5" />
 
             <include
                 android:id="@+id/day_sunday"
-                layout="@layout/item_week_day_card"
+                layout="@layout/item_week_day_card_weekend"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="0.5" />
