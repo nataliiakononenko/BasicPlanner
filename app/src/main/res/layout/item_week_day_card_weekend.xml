@@ -47,15 +47,55 @@
         android:layout_marginTop="4dp"
         android:background="@drawable/border_day_card">
 
+        <!-- Time chunks fill entire space -->
         <LinearLayout
             android:id="@+id/time_chunks_container"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp">
+            android:orientation="vertical">
 
-            <!-- Hour 8 line with label -->
+            <!-- 8-14 chunk -->
+            <FrameLayout
+                android:id="@+id/chunk_8_14"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="6"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground">
+                
+                <FrameLayout
+                    android:id="@+id/events_8_14"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <!-- 14-20 chunk -->
+            <FrameLayout
+                android:id="@+id/chunk_14_20"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="6"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground">
+                
+                <FrameLayout
+                    android:id="@+id/events_14_20"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Hour lines overlaid on top -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:clickable="false"
+            android:focusable="false">
+
+            <!-- Hour 8 line -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -77,23 +117,12 @@
                     android:background="#30000000" />
             </LinearLayout>
 
-            <!-- 8-14 chunk -->
-            <FrameLayout
-                android:id="@+id/chunk_8_14"
+            <Space
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="6"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-                
-                <FrameLayout
-                    android:id="@+id/events_8_14"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </FrameLayout>
+                android:layout_weight="6" />
 
-            <!-- Hour 14 line with label -->
+            <!-- Hour 14 line -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -115,23 +144,12 @@
                     android:background="#30000000" />
             </LinearLayout>
 
-            <!-- 14-20 chunk -->
-            <FrameLayout
-                android:id="@+id/chunk_14_20"
+            <Space
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="6"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-                
-                <FrameLayout
-                    android:id="@+id/events_14_20"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </FrameLayout>
+                android:layout_weight="6" />
 
-            <!-- Hour 20 line with label -->
+            <!-- Hour 20 line -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

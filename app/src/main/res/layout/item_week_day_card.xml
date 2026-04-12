@@ -47,15 +47,71 @@
         android:layout_marginTop="4dp"
         android:background="@drawable/border_day_card">
 
+        <!-- Time chunks fill entire space -->
         <LinearLayout
             android:id="@+id/time_chunks_container"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp">
+            android:orientation="vertical">
 
-            <!-- Hour 8 line with label -->
+            <!-- 8-12 chunk -->
+            <FrameLayout
+                android:id="@+id/chunk_8_12"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="4"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground">
+                
+                <FrameLayout
+                    android:id="@+id/events_8_12"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <!-- 12-16 chunk -->
+            <FrameLayout
+                android:id="@+id/chunk_12_16"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="4"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground">
+                
+                <FrameLayout
+                    android:id="@+id/events_12_16"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <!-- 16-20 chunk -->
+            <FrameLayout
+                android:id="@+id/chunk_16_20"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="4"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground">
+                
+                <FrameLayout
+                    android:id="@+id/events_16_20"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Hour lines overlaid on top -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:clickable="false"
+            android:focusable="false">
+
+            <!-- Hour 8 line -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -77,23 +133,12 @@
                     android:background="#30000000" />
             </LinearLayout>
 
-            <!-- 8-12 chunk -->
-            <FrameLayout
-                android:id="@+id/chunk_8_12"
+            <Space
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="4"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-                
-                <FrameLayout
-                    android:id="@+id/events_8_12"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </FrameLayout>
+                android:layout_weight="4" />
 
-            <!-- Hour 12 line with label -->
+            <!-- Hour 12 line -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -115,23 +160,12 @@
                     android:background="#30000000" />
             </LinearLayout>
 
-            <!-- 12-16 chunk -->
-            <FrameLayout
-                android:id="@+id/chunk_12_16"
+            <Space
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="4"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-                
-                <FrameLayout
-                    android:id="@+id/events_12_16"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </FrameLayout>
+                android:layout_weight="4" />
 
-            <!-- Hour 16 line with label -->
+            <!-- Hour 16 line -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -153,23 +187,12 @@
                     android:background="#30000000" />
             </LinearLayout>
 
-            <!-- 16-20 chunk -->
-            <FrameLayout
-                android:id="@+id/chunk_16_20"
+            <Space
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="4"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground">
-                
-                <FrameLayout
-                    android:id="@+id/events_16_20"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-            </FrameLayout>
+                android:layout_weight="4" />
 
-            <!-- Hour 20 line with label -->
+            <!-- Hour 20 line -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

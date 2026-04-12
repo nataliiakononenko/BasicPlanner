@@ -253,9 +253,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val dateStr = getDateString(currentDate)
         val events = database.getEventsForDate(dateStr)
         
-        for (event in events) {
-            addEventToOverlay(eventsOverlay, event, events)
-        }
+        layoutEventsOnOverlay(eventsOverlay, hoursContainer, events)
 
         // Add current time indicator if viewing today
         val today = Calendar.getInstance()
@@ -268,28 +266,41 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             
             // Show current time indicator for any hour
             eventsOverlay.post {
-                // Account for the 8dp padding on hours_container
-                val containerPadding = (8 * resources.displayMetrics.density).toInt()
-                // Account for the 8dp marginTop on the hour line View
-                val hourLineOffset = (8 * resources.displayMetrics.density).toInt()
-                val hourHeight = 40f // dp per hour (reduced from 60)
+                val d = resources.displayMetrics.density
                 
-                // Calculate position: hours from midnight + minutes within the hour + offsets
-                val topMargin = (currentHour * hourHeight + (currentMinute / 60f * hourHeight))
-                
-                val currentTimeLine = View(this)
-                currentTimeLine.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary))
-                
-                val params = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    (2 * resources.displayMetrics.density).toInt() // 2dp height
-                )
-                // Add container padding and hour line offset to align properly
-                params.topMargin = (topMargin * resources.displayMetrics.density).toInt() + containerPadding + hourLineOffset
-                // Don't extend past the hour lines - line stays within events_overlay margin
-                currentTimeLine.layoutParams = params
-                
-                eventsOverlay.addView(currentTimeLine)
+                // Measure actual hour line positions
+                val hourBlock = hoursContainer.getChildAt(currentHour)
+                val nextHourBlock = if (currentHour < 23) hoursContainer.getChildAt(currentHour + 1) else null
+                if (hourBlock != null) {
+                    val greyLine = (hourBlock as android.view.ViewGroup).getChildAt(1)
+                    val loc = IntArray(2)
+                    greyLine.getLocationInWindow(loc)
+                    val overlayLoc = IntArray(2)
+                    eventsOverlay.getLocationInWindow(overlayLoc)
+                    val baseY = loc[1] - overlayLoc[1]
+                    
+                    val topPx = if (nextHourBlock != null) {
+                        val nextLine = (nextHourBlock as android.view.ViewGroup).getChildAt(1)
+                        val nextLoc = IntArray(2)
+                        nextLine.getLocationInWindow(nextLoc)
+                        val nextY = nextLoc[1] - overlayLoc[1]
+                        val hourHeightPx = nextY - baseY
+                        baseY + (currentMinute * hourHeightPx / 60)
+                    } else {
+                        baseY
+                    }
+                    
+                    val currentTimeLine = View(this)
+                    currentTimeLine.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary))
+                    
+                    val params = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        (2 * d).toInt() // 2dp height
+                    )
+                    params.topMargin = topPx
+                    currentTimeLine.layoutParams = params
+                    eventsOverlay.addView(currentTimeLine)
+                }
             }
         }
 
@@ -308,60 +319,146 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         rvTodos.visibility = if (todos.isEmpty()) View.GONE else View.VISIBLE
     }
 
-    private fun addEventToOverlay(overlay: FrameLayout, event: Event, allEvents: List<Event>) {
-        val startParts = event.startTime.split(":")
-        val endParts = event.endTime.split(":")
-        
-        val startHour = startParts[0].toIntOrNull() ?: 0
-        val startMin = startParts.getOrNull(1)?.toIntOrNull() ?: 0
-        val endHour = endParts[0].toIntOrNull() ?: startHour + 1
-        val endMin = endParts.getOrNull(1)?.toIntOrNull() ?: 0
+    private fun layoutEventsOnOverlay(overlay: FrameLayout, hoursContainer: LinearLayout, events: List<Event>) {
+        if (events.isEmpty()) return
 
-        val hourHeight = 40 // dp per hour (reduced from 60)
-        val topMargin = (startHour * hourHeight + (startMin * hourHeight / 60))
-        val height = ((endHour - startHour) * hourHeight + ((endMin - startMin) * hourHeight / 60))
+        val density = resources.displayMetrics.density
 
-        // Check for overlapping events
-        val overlapping = allEvents.filter { other ->
-            other.id != event.id && eventsOverlap(event, other)
-        }
-        val overlapCount = overlapping.size + 1
-        val overlapIndex = overlapping.count { it.id < event.id }
+        // Sort events by start time, then by duration (longer first)
+        val sorted = events.sortedWith(compareBy<Event> { timeToMinutes(it.startTime) }
+            .thenByDescending { timeToMinutes(it.endTime) - timeToMinutes(it.startTime) })
 
-        val eventView = TextView(this)
-        eventView.text = "${event.startTime} ${event.title}"
-        eventView.setBackgroundResource(R.drawable.event_background)
-        eventView.setTextColor(ContextCompat.getColor(this, R.color.text_on_primary))
-        eventView.setPadding(8, 4, 8, 4)
-        eventView.textSize = 12f
-
-        // Calculate width and position for overlapping events
-        val eventWidth = if (overlapCount > 1) {
-            FrameLayout.LayoutParams.MATCH_PARENT / overlapCount
-        } else {
-            FrameLayout.LayoutParams.MATCH_PARENT
-        }
-        
-        val params = FrameLayout.LayoutParams(
-            eventWidth,
-            (height * resources.displayMetrics.density).toInt()
+        // Assign columns using greedy algorithm (like Outlook)
+        // Each event gets a column index, and we track the max columns in each overlap group
+        data class EventLayout(
+            val event: Event,
+            var column: Int = 0,
+            var totalColumns: Int = 1
         )
-        params.topMargin = (topMargin * resources.displayMetrics.density).toInt()
-        
-        // Position overlapping events side-by-side
-        if (overlapCount > 1) {
-            overlay.post {
-                val overlayWidth = overlay.width
-                val columnWidth = overlayWidth / overlapCount
-                params.width = columnWidth
-                params.marginStart = overlapIndex * columnWidth
-                eventView.layoutParams = params
+
+        val layouts = sorted.map { EventLayout(it) }
+
+        // Assign columns: for each event, find the first available column
+        // that doesn't conflict with already-placed overlapping events
+        for (i in layouts.indices) {
+            val current = layouts[i]
+            val occupiedColumns = mutableSetOf<Int>()
+
+            // Check all previously placed events that overlap with this one
+            for (j in 0 until i) {
+                val other = layouts[j]
+                if (eventsOverlap(current.event, other.event)) {
+                    occupiedColumns.add(other.column)
+                }
+            }
+
+            // Assign first available column
+            var col = 0
+            while (col in occupiedColumns) col++
+            current.column = col
+        }
+
+        // Now determine total columns for each overlap group
+        // Build overlap groups: events that are transitively connected through overlaps
+        val visited = BooleanArray(layouts.size)
+        val groups = mutableListOf<MutableList<Int>>()
+
+        for (i in layouts.indices) {
+            if (visited[i]) continue
+            val group = mutableListOf<Int>()
+            val queue = ArrayDeque<Int>()
+            queue.add(i)
+            visited[i] = true
+            while (queue.isNotEmpty()) {
+                val idx = queue.removeFirst()
+                group.add(idx)
+                for (j in layouts.indices) {
+                    if (!visited[j] && eventsOverlap(layouts[idx].event, layouts[j].event)) {
+                        visited[j] = true
+                        queue.add(j)
+                    }
+                }
+            }
+            groups.add(group)
+        }
+
+        // For each group, set totalColumns to the max column + 1 in that group
+        for (group in groups) {
+            val maxCol = group.maxOf { layouts[it].column }
+            val totalCols = maxCol + 1
+            for (idx in group) {
+                layouts[idx].totalColumns = totalCols
             }
         }
-        
-        eventView.layoutParams = params
-        eventView.setOnClickListener { showEventDialog(event) }
-        overlay.addView(eventView)
+
+        // Create views after layout so we can measure actual positions
+        overlay.post {
+            val overlayWidth = overlay.width
+
+            // Measure the actual pixel position of each hour's grey line
+            // by getting the Y of the grey line View relative to the overlay's parent
+            val overlayTop = overlay.top
+            val hourLinePositions = IntArray(24)
+            for (h in 0..23) {
+                val hourBlock = hoursContainer.getChildAt(h)
+                if (hourBlock != null) {
+                    // The grey line is the second child (index 1) inside the hour block LinearLayout
+                    val greyLine = (hourBlock as android.view.ViewGroup).getChildAt(1)
+                    // Get absolute position of grey line on screen
+                    val loc = IntArray(2)
+                    greyLine.getLocationInWindow(loc)
+                    val overlayLoc = IntArray(2)
+                    overlay.getLocationInWindow(overlayLoc)
+                    hourLinePositions[h] = loc[1] - overlayLoc[1]
+                }
+            }
+
+            // Helper to get pixel Y for a given time
+            fun timeToPixelY(hour: Int, min: Int): Int {
+                if (hour >= 23) return hourLinePositions[23]
+                val baseY = hourLinePositions[hour]
+                val nextY = hourLinePositions[minOf(hour + 1, 23)]
+                val hourHeightPx = nextY - baseY
+                return baseY + (min * hourHeightPx / 60)
+            }
+
+            for (layout in layouts) {
+                val event = layout.event
+                val startParts = event.startTime.split(":")
+                val endParts = event.endTime.split(":")
+                val startHour = startParts[0].toIntOrNull() ?: 0
+                val startMin = startParts.getOrNull(1)?.toIntOrNull() ?: 0
+                val endHour = endParts[0].toIntOrNull() ?: startHour + 1
+                val endMin = endParts.getOrNull(1)?.toIntOrNull() ?: 0
+
+                val topPx = timeToPixelY(startHour, startMin)
+                val bottomPx = timeToPixelY(endHour, endMin)
+                val heightPx = bottomPx - topPx
+
+                val columnWidth = overlayWidth / layout.totalColumns
+
+                val eventView = TextView(this)
+                eventView.text = event.title
+                eventView.setBackgroundResource(R.drawable.event_background)
+                eventView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                eventView.setPadding(
+                    (8 * density).toInt(), (2 * density).toInt(),
+                    (4 * density).toInt(), (2 * density).toInt()
+                )
+                eventView.textSize = 12f
+
+                val params = FrameLayout.LayoutParams(
+                    columnWidth,
+                    heightPx
+                )
+                params.topMargin = topPx
+                params.marginStart = layout.column * columnWidth
+
+                eventView.layoutParams = params
+                eventView.setOnClickListener { showEventDialog(event) }
+                overlay.addView(eventView)
+            }
+        }
     }
 
     private fun eventsOverlap(e1: Event, e2: Event): Boolean {
@@ -390,7 +487,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             val overlapIndex = overlapping.count { it.id < event.id }
             
             val eventView = LayoutInflater.from(this).inflate(R.layout.item_event_small, container, false)
-            eventView.findViewById<TextView>(R.id.tv_event).text = "${event.startTime} ${event.title}"
+            eventView.findViewById<TextView>(R.id.tv_event).text = event.title
             eventView.setOnClickListener { 
                 currentDate.time = dayCal.time
                 showEventDialog(event)
