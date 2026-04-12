@@ -48,4 +48,7 @@
     <string name="no_todos">No to-dos</string>
     <string name="todos_for_day">To-Do</string>
     <string name="todos_for_week">Week To-Do</string>
+    
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
 </resources>

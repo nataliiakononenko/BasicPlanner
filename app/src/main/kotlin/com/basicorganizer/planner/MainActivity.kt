@@ -8,14 +8,16 @@ import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.basicorganizer.planner.adapter.TodoAdapter
 import com.basicorganizer.planner.data.*
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.text.SimpleDateFormat
 import java.util.*
@@ -23,13 +25,11 @@ import java.util.*
 class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener {
 
     private lateinit var toolbar: androidx.appcompat.widget.Toolbar
+    private lateinit var drawerLayout: DrawerLayout
     private lateinit var tvDatePrimary: TextView
     private lateinit var tvDateSecondary: TextView
     private lateinit var btnPrev: ImageButton
     private lateinit var btnNext: ImageButton
-    private lateinit var btnDayView: MaterialButton
-    private lateinit var btnWeekView: MaterialButton
-    private lateinit var btnMonthView: MaterialButton
     private lateinit var dayView: View
     private lateinit var weekView: View
     private lateinit var monthView: View
@@ -57,13 +57,11 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
 
     private fun initializeViews() {
         toolbar = findViewById(R.id.toolbar)
+        drawerLayout = findViewById(R.id.drawer_layout)
         tvDatePrimary = findViewById(R.id.tv_date_primary)
         tvDateSecondary = findViewById(R.id.tv_date_secondary)
         btnPrev = findViewById(R.id.btn_prev)
         btnNext = findViewById(R.id.btn_next)
-        btnDayView = findViewById(R.id.btn_day_view)
-        btnWeekView = findViewById(R.id.btn_week_view)
-        btnMonthView = findViewById(R.id.btn_month_view)
         dayView = findViewById(R.id.day_view)
         weekView = findViewById(R.id.week_view)
         monthView = findViewById(R.id.month_view)
@@ -76,12 +74,32 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         toolbar.setTitleTextColor(ContextCompat.getColor(this, R.color.white))
         setSupportActionBar(toolbar)
         supportActionBar?.title = getString(R.string.app_name)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_menu)
+
+        val toggle = ActionBarDrawerToggle(
+            this, drawerLayout, toolbar,
+            R.string.navigation_drawer_open,
+            R.string.navigation_drawer_close
+        )
+        drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
     }
 
     private fun setupViewSwitcher() {
-        btnDayView.setOnClickListener { switchToView(ViewMode.DAY) }
-        btnWeekView.setOnClickListener { switchToView(ViewMode.WEEK) }
-        btnMonthView.setOnClickListener { switchToView(ViewMode.MONTH) }
+        val navView = findViewById<View>(R.id.nav_view)
+        navView.findViewById<View>(R.id.nav_day_view).setOnClickListener {
+            switchToView(ViewMode.DAY)
+            drawerLayout.closeDrawer(GravityCompat.START)
+        }
+        navView.findViewById<View>(R.id.nav_week_view).setOnClickListener {
+            switchToView(ViewMode.WEEK)
+            drawerLayout.closeDrawer(GravityCompat.START)
+        }
+        navView.findViewById<View>(R.id.nav_month_view).setOnClickListener {
+            switchToView(ViewMode.MONTH)
+            drawerLayout.closeDrawer(GravityCompat.START)
+        }
         updateViewButtons()
     }
 
@@ -115,23 +133,6 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     }
 
     private fun updateViewButtons() {
-        val selectedColor = ContextCompat.getColor(this, R.color.colorPrimary)
-        val defaultColor = ContextCompat.getColor(this, R.color.text_secondary)
-
-        btnDayView.setTextColor(if (currentViewMode == ViewMode.DAY) selectedColor else defaultColor)
-        btnWeekView.setTextColor(if (currentViewMode == ViewMode.WEEK) selectedColor else defaultColor)
-        btnMonthView.setTextColor(if (currentViewMode == ViewMode.MONTH) selectedColor else defaultColor)
-
-        btnDayView.strokeColor = android.content.res.ColorStateList.valueOf(
-            if (currentViewMode == ViewMode.DAY) selectedColor else defaultColor
-        )
-        btnWeekView.strokeColor = android.content.res.ColorStateList.valueOf(
-            if (currentViewMode == ViewMode.WEEK) selectedColor else defaultColor
-        )
-        btnMonthView.strokeColor = android.content.res.ColorStateList.valueOf(
-            if (currentViewMode == ViewMode.MONTH) selectedColor else defaultColor
-        )
-
         dayView.visibility = if (currentViewMode == ViewMode.DAY) View.VISIBLE else View.GONE
         weekView.visibility = if (currentViewMode == ViewMode.WEEK) View.VISIBLE else View.GONE
         monthView.visibility = if (currentViewMode == ViewMode.MONTH) View.VISIBLE else View.GONE
