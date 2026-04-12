@@ -215,6 +215,14 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Events overlay - positioned after hour labels -->
+        <FrameLayout
+            android:id="@+id/events_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="16dp"
+            android:clipChildren="true" />
+
         <FrameLayout
             android:id="@+id/time_indicator_overlay"
             android:layout_width="match_parent"

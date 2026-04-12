@@ -474,44 +474,115 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         return (parts[0].toIntOrNull() ?: 0) * 60 + (parts.getOrNull(1)?.toIntOrNull() ?: 0)
     }
 
-    private fun addEventsToWeekChunk(container: FrameLayout, events: List<Event>, dayCal: Calendar) {
+    private fun layoutWeekEventsOnOverlay(overlay: FrameLayout, events: List<Event>, dayCal: Calendar) {
         if (events.isEmpty()) return
-        
-        // For each event, calculate overlaps and position
-        for (event in events) {
-            // Check for overlapping events
-            val overlapping = events.filter { other ->
-                other.id != event.id && eventsOverlap(event, other)
-            }
-            val overlapCount = overlapping.size + 1
-            val overlapIndex = overlapping.count { it.id < event.id }
-            
-            val eventView = LayoutInflater.from(this).inflate(R.layout.item_event_small, container, false)
-            eventView.findViewById<TextView>(R.id.tv_event).text = event.title
-            eventView.setOnClickListener { 
-                currentDate.time = dayCal.time
-                showEventDialog(event)
-            }
-            
-            // Calculate width and position for overlapping events
-            val params = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-            
-            // Position overlapping events side-by-side
-            if (overlapCount > 1) {
-                container.post {
-                    val containerWidth = container.width
-                    val columnWidth = containerWidth / overlapCount
-                    params.width = columnWidth
-                    params.marginStart = overlapIndex * columnWidth
-                    eventView.layoutParams = params
+
+        val density = resources.displayMetrics.density
+        val startOfDay = 8 * 60  // 8:00 in minutes
+        val endOfDay = 20 * 60   // 20:00 in minutes
+        val totalMinutes = endOfDay - startOfDay // 720 minutes
+
+        // Sort events by start time, then by duration (longer first)
+        val sorted = events.sortedWith(compareBy<Event> { timeToMinutes(it.startTime) }
+            .thenByDescending { timeToMinutes(it.endTime) - timeToMinutes(it.startTime) })
+
+        // Assign columns using greedy algorithm (same as day view)
+        data class WeekEventLayout(
+            val event: Event,
+            var column: Int = 0,
+            var totalColumns: Int = 1
+        )
+
+        val layouts = sorted.map { WeekEventLayout(it) }
+
+        for (i in layouts.indices) {
+            val current = layouts[i]
+            val occupiedColumns = mutableSetOf<Int>()
+            for (j in 0 until i) {
+                val other = layouts[j]
+                if (eventsOverlap(current.event, other.event)) {
+                    occupiedColumns.add(other.column)
                 }
             }
-            
-            eventView.layoutParams = params
-            container.addView(eventView)
+            var col = 0
+            while (col in occupiedColumns) col++
+            current.column = col
+        }
+
+        // Build overlap groups
+        val visited = BooleanArray(layouts.size)
+        val groups = mutableListOf<MutableList<Int>>()
+        for (i in layouts.indices) {
+            if (visited[i]) continue
+            val group = mutableListOf<Int>()
+            val queue = ArrayDeque<Int>()
+            queue.add(i)
+            visited[i] = true
+            while (queue.isNotEmpty()) {
+                val idx = queue.removeFirst()
+                group.add(idx)
+                for (j in layouts.indices) {
+                    if (!visited[j] && eventsOverlap(layouts[idx].event, layouts[j].event)) {
+                        visited[j] = true
+                        queue.add(j)
+                    }
+                }
+            }
+            groups.add(group)
+        }
+
+        for (group in groups) {
+            val maxCol = group.maxOf { layouts[it].column }
+            val totalCols = maxCol + 1
+            for (idx in group) {
+                layouts[idx].totalColumns = totalCols
+            }
+        }
+
+        // Create views after layout to get actual overlay dimensions
+        overlay.post {
+            val overlayHeight = overlay.height
+            val overlayWidth = overlay.width
+
+            for (layout in layouts) {
+                val event = layout.event
+                val eventStartMin = timeToMinutes(event.startTime).coerceIn(startOfDay, endOfDay)
+                val eventEndMin = timeToMinutes(event.endTime).coerceIn(startOfDay, endOfDay)
+
+                val topFraction = (eventStartMin - startOfDay).toFloat() / totalMinutes
+                val bottomFraction = (eventEndMin - startOfDay).toFloat() / totalMinutes
+                val topPx = (topFraction * overlayHeight).toInt()
+                val heightPx = ((bottomFraction - topFraction) * overlayHeight).toInt()
+
+                val columnWidth = overlayWidth / layout.totalColumns
+
+                val eventView = TextView(this)
+                eventView.text = event.title
+                eventView.setBackgroundResource(R.drawable.event_background)
+                eventView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                eventView.setPadding(
+                    (4 * density).toInt(), (2 * density).toInt(),
+                    (2 * density).toInt(), (2 * density).toInt()
+                )
+                eventView.textSize = 9f
+                eventView.gravity = android.view.Gravity.TOP
+                eventView.maxLines = 3
+                eventView.ellipsize = android.text.TextUtils.TruncateAt.END
+
+                val params = FrameLayout.LayoutParams(
+                    columnWidth,
+                    heightPx.coerceAtLeast((8 * density).toInt())
+                )
+                params.topMargin = topPx
+                params.marginStart = layout.column * columnWidth
+
+                eventView.layoutParams = params
+                eventView.setOnClickListener {
+                    currentDate.time = dayCal.time
+                    showEventDialog(event)
+                }
+                overlay.addView(eventView)
+            }
         }
     }
 
@@ -553,33 +624,18 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             val hasTodos = database.hasTodosForDate(dateStr)
             card.findViewById<View>(R.id.indicator_todos).visibility = if (hasTodos) View.VISIBLE else View.GONE
 
-            // Load events into time chunks
+            // Load events proportionally into the events_overlay
             val events = database.getEventsForDate(dateStr)
             val isWeekend = i >= 5 // Saturday (5) and Sunday (6)
             
+            val eventsOverlay = card.findViewById<FrameLayout>(R.id.events_overlay)
+            eventsOverlay.removeAllViews()
+            
+            // Add events with proportional positioning
+            layoutWeekEventsOnOverlay(eventsOverlay, events, dayCal)
+            
+            // Add long-click listeners to time chunks
             if (isWeekend) {
-                // Weekend: 2 chunks (8-14, 14-20)
-                val chunk8_14 = card.findViewById<FrameLayout>(R.id.events_8_14)
-                val chunk14_20 = card.findViewById<FrameLayout>(R.id.events_14_20)
-                
-                chunk8_14?.removeAllViews()
-                chunk14_20?.removeAllViews()
-                
-                // Group events by time chunk
-                val events8_14 = events.filter { 
-                    val startHour = it.startTime.split(":")[0].toIntOrNull() ?: 0
-                    startHour in 8..13
-                }
-                val events14_20 = events.filter { 
-                    val startHour = it.startTime.split(":")[0].toIntOrNull() ?: 0
-                    startHour in 14..19
-                }
-                
-                // Add events with overlap handling
-                chunk8_14?.let { addEventsToWeekChunk(it, events8_14, dayCal) }
-                chunk14_20?.let { addEventsToWeekChunk(it, events14_20, dayCal) }
-                
-                // Add long-click listeners to weekend time chunks
                 card.findViewById<View>(R.id.chunk_8_14)?.setOnLongClickListener {
                     currentDate.time = dayCal.time
                     showEventDialog(null, "08:00", "14:00")
@@ -591,35 +647,6 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                     true
                 }
             } else {
-                // Weekday: 3 chunks (8-12, 12-16, 16-20)
-                val chunk8_12 = card.findViewById<FrameLayout>(R.id.events_8_12)
-                val chunk12_16 = card.findViewById<FrameLayout>(R.id.events_12_16)
-                val chunk16_20 = card.findViewById<FrameLayout>(R.id.events_16_20)
-                
-                chunk8_12?.removeAllViews()
-                chunk12_16?.removeAllViews()
-                chunk16_20?.removeAllViews()
-                
-                // Group events by time chunk
-                val events8_12 = events.filter { 
-                    val startHour = it.startTime.split(":")[0].toIntOrNull() ?: 0
-                    startHour in 8..11
-                }
-                val events12_16 = events.filter { 
-                    val startHour = it.startTime.split(":")[0].toIntOrNull() ?: 0
-                    startHour in 12..15
-                }
-                val events16_20 = events.filter { 
-                    val startHour = it.startTime.split(":")[0].toIntOrNull() ?: 0
-                    startHour in 16..19
-                }
-                
-                // Add events with overlap handling
-                chunk8_12?.let { addEventsToWeekChunk(it, events8_12, dayCal) }
-                chunk12_16?.let { addEventsToWeekChunk(it, events12_16, dayCal) }
-                chunk16_20?.let { addEventsToWeekChunk(it, events16_20, dayCal) }
-                
-                // Add long-click listeners to weekday time chunks
                 card.findViewById<View>(R.id.chunk_8_12)?.setOnLongClickListener {
                     currentDate.time = dayCal.time
                     showEventDialog(null, "08:00", "12:00")
