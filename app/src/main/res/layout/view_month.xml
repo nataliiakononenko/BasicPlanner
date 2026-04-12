@@ -37,34 +37,41 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" />
 
-        <TextView
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Monthly Goals"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary"
-            android:padding="16dp"
-            android:paddingTop="24dp" />
+            android:layout_height="1dp"
+            android:background="@color/hour_line" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_month_todos"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="16dp" />
+            android:orientation="vertical"
+            android:padding="4dp">
 
-        <TextView
-            android:id="@+id/tv_no_month_todos"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="No monthly goals"
-            android:textSize="14sp"
-            android:textColor="@color/text_secondary"
-            android:gravity="center"
-            android:padding="16dp"
-            android:visibility="gone" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Goals for the Month:"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="4dp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_month_todos"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/tv_no_month_todos"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No goals for the month yet"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
 </ScrollView>

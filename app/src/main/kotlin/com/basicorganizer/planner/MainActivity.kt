@@ -217,7 +217,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val weekStart = getWeekStartDate(currentDate)
                 val weekEnd = weekStart.clone() as Calendar
                 weekEnd.add(Calendar.DAY_OF_MONTH, 6)
-                tvDateLabel.text = "Week"
+                val weekNumber = weekStart.get(Calendar.WEEK_OF_YEAR)
+                tvDateLabel.text = "Week $weekNumber"
                 tvDateValue.text = SimpleDateFormat("d MMM", Locale.getDefault()).format(weekStart.time) + " - " +
                         SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(weekEnd.time)
             }
@@ -803,6 +804,13 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
             weekNumView.layoutParams = weekNumParams
+            
+            // Click week number to navigate to that week
+            val weekCal = calendar.clone() as Calendar
+            weekNumView.setOnClickListener {
+                currentDate.time = weekCal.time
+                switchToView(ViewMode.WEEK)
+            }
             weekRow.addView(weekNumView)
             
             // Add 7 day cells for this week
@@ -886,6 +894,47 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 switchToView(ViewMode.MONTH)
             }
 
+            // Add day names header
+            val dayNamesHeader = monthView.findViewById<LinearLayout>(R.id.day_names_header)
+            dayNamesHeader.removeAllViews()
+            
+            // Add empty space for week number column
+            val emptySpace = View(this)
+            val emptyParams = LinearLayout.LayoutParams(
+                (12 * resources.displayMetrics.density).toInt(),
+                (12 * resources.displayMetrics.density).toInt()
+            )
+            emptySpace.layoutParams = emptyParams
+            dayNamesHeader.addView(emptySpace)
+            
+            // Add day name labels
+            val dayNames = if (firstDayOfWeek == Calendar.MONDAY) {
+                listOf("M", "T", "W", "T", "F", "S", "S")
+            } else {
+                listOf("S", "M", "T", "W", "T", "F", "S")
+            }
+            
+            for (i in dayNames.indices) {
+                val dayNameView = TextView(this)
+                dayNameView.text = dayNames[i]
+                dayNameView.textSize = 6f
+                dayNameView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                dayNameView.gravity = android.view.Gravity.CENTER
+                val params = LinearLayout.LayoutParams(
+                    (12 * resources.displayMetrics.density).toInt(),
+                    (12 * resources.displayMetrics.density).toInt()
+                )
+                dayNameView.layoutParams = params
+                
+                // Make Sunday primary color
+                val isSunday = if (firstDayOfWeek == Calendar.MONDAY) i == 6 else i == 0
+                if (isSunday) {
+                    dayNameView.setTextColor(ContextCompat.getColor(this, R.color.colorPrimary))
+                }
+                
+                dayNamesHeader.addView(dayNameView)
+            }
+
             val miniContainer = monthView.findViewById<LinearLayout>(R.id.mini_month_container)
             miniContainer.removeAllViews()
 
@@ -919,11 +968,11 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 )
                 weekNumView.layoutParams = weekNumParams
                 
-                // Click week number to navigate to that week
+                // Click week number to navigate to that month
                 val weekCal = monthCal.clone() as Calendar
                 weekNumView.setOnClickListener {
                     currentDate.time = weekCal.time
-                    switchToView(ViewMode.WEEK)
+                    switchToView(ViewMode.MONTH)
                 }
                 weekRow.addView(weekNumView)
                 
@@ -945,7 +994,15 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                         val dayView = TextView(this)
                         dayView.text = currentDay.toString()
                         dayView.textSize = 7f
-                        dayView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                        
+                        // Make Sunday day numbers primary color
+                        val isSunday = monthCal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
+                        if (isSunday) {
+                            dayView.setTextColor(ContextCompat.getColor(this, R.color.colorPrimary))
+                        } else {
+                            dayView.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+                        }
+                        
                         dayView.gravity = android.view.Gravity.CENTER
                         
                         // Highlight current day
@@ -955,11 +1012,11 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                             dayView.setBackgroundResource(R.drawable.border_current_day)
                         }
                         
-                        // Click day to navigate to that day
+                        // Click day to navigate to that month
                         val dayCopy = monthCal.clone() as Calendar
                         dayView.setOnClickListener {
                             currentDate.time = dayCopy.time
-                            switchToView(ViewMode.DAY)
+                            switchToView(ViewMode.MONTH)
                         }
                         
                         val params = LinearLayout.LayoutParams(
