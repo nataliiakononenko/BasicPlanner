@@ -2,7 +2,10 @@ package com.basicorganizer.planner
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.graphics.Typeface
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
@@ -26,8 +29,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
 
     private lateinit var toolbar: androidx.appcompat.widget.Toolbar
     private lateinit var drawerLayout: DrawerLayout
-    private lateinit var tvDatePrimary: TextView
-    private lateinit var tvDateSecondary: TextView
+    private lateinit var tvDateLabel: TextView
+    private lateinit var tvDateValue: TextView
     private lateinit var btnPrev: ImageButton
     private lateinit var btnNext: ImageButton
     private lateinit var dayView: View
@@ -58,8 +61,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private fun initializeViews() {
         toolbar = findViewById(R.id.toolbar)
         drawerLayout = findViewById(R.id.drawer_layout)
-        tvDatePrimary = findViewById(R.id.tv_date_primary)
-        tvDateSecondary = findViewById(R.id.tv_date_secondary)
+        tvDateLabel = findViewById(R.id.tv_date_label)
+        tvDateValue = findViewById(R.id.tv_date_value)
         btnPrev = findViewById(R.id.btn_prev)
         btnNext = findViewById(R.id.btn_next)
         dayView = findViewById(R.id.day_view)
@@ -150,25 +153,33 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private fun updateDateDisplay() {
         when (currentViewMode) {
             ViewMode.DAY -> {
-                val dayFormat = SimpleDateFormat("EEEE", Locale.getDefault())
+                // Format: "Wed" on left, "12 of April" on right
+                val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
                 val dateFormat = SimpleDateFormat("d 'of' MMMM", Locale.getDefault())
-                tvDatePrimary.text = dayFormat.format(currentDate.time)
-                tvDateSecondary.text = dateFormat.format(currentDate.time)
+                tvDateLabel.text = dayFormat.format(currentDate.time)
+                tvDateValue.text = dateFormat.format(currentDate.time)
             }
             ViewMode.WEEK -> {
+                // Format: "Week 15" on left, "3-10 April" on right
                 val weekNum = currentDate.get(Calendar.WEEK_OF_YEAR)
                 val weekStart = getWeekStartDate(currentDate)
                 val weekEnd = getWeekEndDate(currentDate)
-                val dateFormat = SimpleDateFormat("d", Locale.getDefault())
+                val dayFormat = SimpleDateFormat("d", Locale.getDefault())
                 val monthFormat = SimpleDateFormat("MMMM", Locale.getDefault())
                 
-                tvDatePrimary.text = getString(R.string.week_number, weekNum)
-                tvDateSecondary.text = "${dateFormat.format(weekStart.time)} - ${dateFormat.format(weekEnd.time)} ${monthFormat.format(weekEnd.time)}"
+                val startDay = dayFormat.format(weekStart.time)
+                val endDay = dayFormat.format(weekEnd.time)
+                val month = monthFormat.format(weekEnd.time)
+                
+                tvDateLabel.text = "Week $weekNum"
+                tvDateValue.text = "$startDay-$endDay $month"
             }
             ViewMode.MONTH -> {
-                val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
-                tvDatePrimary.text = monthFormat.format(currentDate.time)
-                tvDateSecondary.text = ""
+                // Format: "April" on left, "2026" on right
+                val monthFormat = SimpleDateFormat("MMMM", Locale.getDefault())
+                val yearFormat = SimpleDateFormat("yyyy", Locale.getDefault())
+                tvDateLabel.text = monthFormat.format(currentDate.time)
+                tvDateValue.text = yearFormat.format(currentDate.time)
             }
         }
     }
