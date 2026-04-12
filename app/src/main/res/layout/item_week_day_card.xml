@@ -78,22 +78,20 @@
             </LinearLayout>
 
             <!-- 8-12 chunk -->
-            <LinearLayout
+            <FrameLayout
                 android:id="@+id/chunk_8_12"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="4"
-                android:orientation="vertical"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?attr/selectableItemBackground">
                 
-                <LinearLayout
+                <FrameLayout
                     android:id="@+id/events_8_12"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical" />
-            </LinearLayout>
+                    android:layout_height="match_parent" />
+            </FrameLayout>
 
             <!-- Hour 12 line with label -->
             <LinearLayout
@@ -118,22 +116,20 @@
             </LinearLayout>
 
             <!-- 12-16 chunk -->
-            <LinearLayout
+            <FrameLayout
                 android:id="@+id/chunk_12_16"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="4"
-                android:orientation="vertical"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?attr/selectableItemBackground">
                 
-                <LinearLayout
+                <FrameLayout
                     android:id="@+id/events_12_16"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical" />
-            </LinearLayout>
+                    android:layout_height="match_parent" />
+            </FrameLayout>
 
             <!-- Hour 16 line with label -->
             <LinearLayout
@@ -158,22 +154,20 @@
             </LinearLayout>
 
             <!-- 16-20 chunk -->
-            <LinearLayout
+            <FrameLayout
                 android:id="@+id/chunk_16_20"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="4"
-                android:orientation="vertical"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?attr/selectableItemBackground">
                 
-                <LinearLayout
+                <FrameLayout
                     android:id="@+id/events_16_20"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical" />
-            </LinearLayout>
+                    android:layout_height="match_parent" />
+            </FrameLayout>
 
             <!-- Hour 20 line with label -->
             <LinearLayout
