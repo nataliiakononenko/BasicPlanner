@@ -10,18 +10,32 @@
         android:orientation="vertical"
         android:padding="8dp">
 
+        <!-- Header row with week number column -->
         <LinearLayout
-            android:id="@+id/weekday_headers"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingBottom="8dp" />
+            android:paddingBottom="8dp">
+            
+            <!-- Empty space for week number column -->
+            <View
+                android:layout_width="24dp"
+                android:layout_height="wrap_content" />
+            
+            <LinearLayout
+                android:id="@+id/weekday_headers"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal" />
+        </LinearLayout>
 
-        <GridLayout
-            android:id="@+id/month_grid"
+        <!-- Calendar grid with week numbers -->
+        <LinearLayout
+            android:id="@+id/month_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="7" />
+            android:orientation="vertical" />
     </LinearLayout>
 
 </ScrollView>

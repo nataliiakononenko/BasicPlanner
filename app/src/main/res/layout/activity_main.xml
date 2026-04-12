@@ -99,6 +99,11 @@
             android:id="@+id/month_view"
             layout="@layout/view_month"
             android:visibility="gone" />
+
+        <include
+            android:id="@+id/year_view"
+            layout="@layout/view_year"
+            android:visibility="gone" />
     </FrameLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton

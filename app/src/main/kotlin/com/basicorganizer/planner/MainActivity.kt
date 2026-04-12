@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private lateinit var dayView: View
     private lateinit var weekView: View
     private lateinit var monthView: View
+    private lateinit var yearView: View
     private lateinit var fabAdd: FloatingActionButton
 
     private lateinit var database: PlannerDatabase
@@ -46,7 +47,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private var currentViewMode: ViewMode = ViewMode.WEEK
     private var firstDayOfWeek: Int = Calendar.MONDAY
 
-    enum class ViewMode { DAY, WEEK, MONTH }
+    enum class ViewMode { DAY, WEEK, MONTH, YEAR }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +71,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         dayView = findViewById(R.id.day_view)
         weekView = findViewById(R.id.week_view)
         monthView = findViewById(R.id.month_view)
+        yearView = findViewById(R.id.year_view)
         fabAdd = findViewById(R.id.fab_add)
 
         fabAdd.setOnClickListener { showTodoDialog(null) }
@@ -118,8 +120,24 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         return true
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        // Hide zoom out button when in year view (already at top level)
+        menu.findItem(R.id.action_zoom_out)?.isVisible = currentViewMode != ViewMode.YEAR
+        return super.onPrepareOptionsMenu(menu)
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_zoom_out -> {
+                // Navigate: day → week → month → year
+                when (currentViewMode) {
+                    ViewMode.DAY -> switchToView(ViewMode.WEEK)
+                    ViewMode.WEEK -> switchToView(ViewMode.MONTH)
+                    ViewMode.MONTH -> switchToView(ViewMode.YEAR)
+                    ViewMode.YEAR -> {} // Already at top level, do nothing
+                }
+                true
+            }
             R.id.action_today -> {
                 goToToday()
                 true
@@ -138,6 +156,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.DAY -> currentDate.add(Calendar.DAY_OF_MONTH, -1)
             ViewMode.WEEK -> currentDate.add(Calendar.WEEK_OF_YEAR, -1)
             ViewMode.MONTH -> currentDate.add(Calendar.MONTH, -1)
+            ViewMode.YEAR -> currentDate.add(Calendar.YEAR, -1)
         }
         loadData()
     }
@@ -147,6 +166,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.DAY -> currentDate.add(Calendar.DAY_OF_MONTH, 1)
             ViewMode.WEEK -> currentDate.add(Calendar.WEEK_OF_YEAR, 1)
             ViewMode.MONTH -> currentDate.add(Calendar.MONTH, 1)
+            ViewMode.YEAR -> currentDate.add(Calendar.YEAR, 1)
         }
         loadData()
     }
@@ -154,6 +174,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private fun switchToView(mode: ViewMode) {
         currentViewMode = mode
         updateViewButtons()
+        invalidateOptionsMenu() // Refresh toolbar menu to update zoom out button visibility
         loadData()
     }
 
@@ -161,47 +182,41 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         dayView.visibility = if (currentViewMode == ViewMode.DAY) View.VISIBLE else View.GONE
         weekView.visibility = if (currentViewMode == ViewMode.WEEK) View.VISIBLE else View.GONE
         monthView.visibility = if (currentViewMode == ViewMode.MONTH) View.VISIBLE else View.GONE
+        yearView.visibility = if (currentViewMode == ViewMode.YEAR) View.VISIBLE else View.GONE
     }
 
     private fun loadData() {
-        updateDateDisplay()
+        updateDateLabel()
         when (currentViewMode) {
             ViewMode.DAY -> loadDayView()
             ViewMode.WEEK -> loadWeekView()
             ViewMode.MONTH -> loadMonthView()
+            ViewMode.YEAR -> loadYearView()
         }
     }
 
-    private fun updateDateDisplay() {
+    private fun updateDateLabel() {
+        val dateFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
         when (currentViewMode) {
             ViewMode.DAY -> {
-                // Format: "Wed" on left, "12 of April" on right
-                val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
-                val dateFormat = SimpleDateFormat("d 'of' MMMM", Locale.getDefault())
-                tvDateLabel.text = dayFormat.format(currentDate.time)
-                tvDateValue.text = dateFormat.format(currentDate.time)
+                tvDateLabel.text = SimpleDateFormat("EEEE", Locale.getDefault()).format(currentDate.time)
+                tvDateValue.text = SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(currentDate.time)
             }
             ViewMode.WEEK -> {
-                // Format: "Week 15" on left, "3-10 April" on right
-                val weekNum = currentDate.get(Calendar.WEEK_OF_YEAR)
                 val weekStart = getWeekStartDate(currentDate)
-                val weekEnd = getWeekEndDate(currentDate)
-                val dayFormat = SimpleDateFormat("d", Locale.getDefault())
-                val monthFormat = SimpleDateFormat("MMMM", Locale.getDefault())
-                
-                val startDay = dayFormat.format(weekStart.time)
-                val endDay = dayFormat.format(weekEnd.time)
-                val month = monthFormat.format(weekEnd.time)
-                
-                tvDateLabel.text = "Week $weekNum"
-                tvDateValue.text = "$startDay-$endDay $month"
+                val weekEnd = weekStart.clone() as Calendar
+                weekEnd.add(Calendar.DAY_OF_MONTH, 6)
+                tvDateLabel.text = "Week"
+                tvDateValue.text = SimpleDateFormat("d MMM", Locale.getDefault()).format(weekStart.time) + " - " +
+                        SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(weekEnd.time)
             }
             ViewMode.MONTH -> {
-                // Format: "April" on left, "2026" on right
-                val monthFormat = SimpleDateFormat("MMMM", Locale.getDefault())
-                val yearFormat = SimpleDateFormat("yyyy", Locale.getDefault())
-                tvDateLabel.text = monthFormat.format(currentDate.time)
-                tvDateValue.text = yearFormat.format(currentDate.time)
+                tvDateLabel.text = ""
+                tvDateValue.text = dateFormat.format(currentDate.time)
+            }
+            ViewMode.YEAR -> {
+                tvDateLabel.text = ""
+                tvDateValue.text = currentDate.get(Calendar.YEAR).toString()
             }
         }
     }
@@ -717,10 +732,10 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     }
 
     private fun loadMonthView() {
-        val monthGrid = monthView.findViewById<GridLayout>(R.id.month_grid)
+        val monthContainer = monthView.findViewById<LinearLayout>(R.id.month_container)
         val weekdayHeaders = monthView.findViewById<LinearLayout>(R.id.weekday_headers)
         
-        monthGrid.removeAllViews()
+        monthContainer.removeAllViews()
         weekdayHeaders.removeAllViews()
 
         // Add weekday headers
@@ -749,61 +764,142 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         var firstDayOffset = calendar.get(Calendar.DAY_OF_WEEK) - firstDayOfWeek
         if (firstDayOffset < 0) firstDayOffset += 7
 
-        // Add empty cells
-        for (i in 0 until firstDayOffset) {
-            val emptyView = View(this)
-            val params = GridLayout.LayoutParams()
-            params.width = 0
-            params.height = (56 * resources.displayMetrics.density).toInt()
-            params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-            emptyView.layoutParams = params
-            monthGrid.addView(emptyView)
-        }
-
-        // Get today's date for comparison
         val today = Calendar.getInstance()
         
-        // Add day cells
-        for (day in 1..daysInMonth) {
-            calendar.set(Calendar.DAY_OF_MONTH, day)
-            val dateStr = getDateString(calendar)
+        // Build calendar week by week
+        var currentDay = 1 - firstDayOffset
+        while (currentDay <= daysInMonth) {
+            // Create week row
+            val weekRow = LinearLayout(this)
+            weekRow.orientation = LinearLayout.HORIZONTAL
+            weekRow.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            
+            // Add week number
+            calendar.set(Calendar.DAY_OF_MONTH, maxOf(1, currentDay))
+            val weekNumber = calendar.get(Calendar.WEEK_OF_YEAR)
+            val weekNumView = TextView(this)
+            weekNumView.text = weekNumber.toString()
+            weekNumView.textSize = 10f
+            weekNumView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            weekNumView.gravity = android.view.Gravity.CENTER
+            weekNumView.layoutParams = LinearLayout.LayoutParams(
+                (24 * resources.displayMetrics.density).toInt(),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            weekRow.addView(weekNumView)
+            
+            // Add 7 day cells for this week
+            for (dayOfWeek in 0..6) {
+                if (currentDay < 1 || currentDay > daysInMonth) {
+                    // Empty cell
+                    val emptyView = View(this)
+                    val params = LinearLayout.LayoutParams(0, (56 * resources.displayMetrics.density).toInt(), 1f)
+                    emptyView.layoutParams = params
+                    weekRow.addView(emptyView)
+                } else {
+                    // Day cell
+                    calendar.set(Calendar.DAY_OF_MONTH, currentDay)
+                    val dateStr = getDateString(calendar)
 
-            val dayView = LayoutInflater.from(this).inflate(R.layout.item_month_day, monthGrid, false)
-            dayView.findViewById<TextView>(R.id.tv_day).text = day.toString()
+                    val dayView = LayoutInflater.from(this).inflate(R.layout.item_month_day, weekRow, false)
+                    dayView.findViewById<TextView>(R.id.tv_day).text = currentDay.toString()
 
-            // Check for events
-            val hasEvents = database.hasEventsForDate(dateStr)
-            dayView.findViewById<View>(R.id.indicator_events).visibility = if (hasEvents) View.VISIBLE else View.GONE
+                    // Check for todos and show indicator
+                    val hasTodos = database.hasTodosForDate(dateStr)
+                    dayView.findViewById<View>(R.id.indicator_todos).visibility = if (hasTodos) View.VISIBLE else View.INVISIBLE
 
-            // Check for todos
-            val todoCount = database.countTodosForDate(dateStr)
-            val tvTodoCount = dayView.findViewById<TextView>(R.id.tv_todo_count)
-            if (todoCount > 0) {
-                tvTodoCount.text = todoCount.toString()
-                tvTodoCount.visibility = View.VISIBLE
-            } else {
-                tvTodoCount.visibility = View.GONE
+                    // Add border to current day
+                    val isToday = calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                                  calendar.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+                    if (isToday) {
+                        dayView.setBackgroundResource(R.drawable.border_current_day)
+                    }
+
+                    val dayCopy = calendar.clone() as Calendar
+                    dayView.setOnClickListener {
+                        currentDate.time = dayCopy.time
+                        switchToView(ViewMode.DAY)
+                    }
+
+                    val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    dayView.layoutParams = params
+                    weekRow.addView(dayView)
+                }
+                currentDay++
+            }
+            
+            monthContainer.addView(weekRow)
+        }
+    }
+
+    private fun loadYearView() {
+        val yearGrid = yearView.findViewById<GridLayout>(R.id.year_grid)
+        yearGrid.removeAllViews()
+
+        val year = currentDate.get(Calendar.YEAR)
+        val monthNames = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+        for (month in 0..11) {
+            val monthCal = Calendar.getInstance()
+            monthCal.set(Calendar.YEAR, year)
+            monthCal.set(Calendar.MONTH, month)
+            monthCal.set(Calendar.DAY_OF_MONTH, 1)
+
+            val monthView = LayoutInflater.from(this).inflate(R.layout.item_year_month, yearGrid, false)
+            monthView.findViewById<TextView>(R.id.tv_month_name).text = monthNames[month]
+
+            val miniGrid = monthView.findViewById<GridLayout>(R.id.mini_month_grid)
+            miniGrid.removeAllViews()
+
+            monthCal.firstDayOfWeek = firstDayOfWeek
+            val daysInMonth = monthCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+            var firstDayOffset = monthCal.get(Calendar.DAY_OF_WEEK) - firstDayOfWeek
+            if (firstDayOffset < 0) firstDayOffset += 7
+
+            // Add empty cells
+            for (i in 0 until firstDayOffset) {
+                val emptyView = View(this)
+                val params = GridLayout.LayoutParams()
+                params.width = (16 * resources.displayMetrics.density).toInt()
+                params.height = (16 * resources.displayMetrics.density).toInt()
+                params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                emptyView.layoutParams = params
+                miniGrid.addView(emptyView)
             }
 
-            // Add border to current day
-            val isToday = calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
-                          calendar.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
-            if (isToday) {
-                dayView.setBackgroundResource(R.drawable.border_current_day)
+            // Add day cells (just numbers, no indicators for simplicity)
+            for (day in 1..daysInMonth) {
+                val dayView = TextView(this)
+                dayView.text = day.toString()
+                dayView.textSize = 8f
+                dayView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                dayView.gravity = android.view.Gravity.CENTER
+
+                val params = GridLayout.LayoutParams()
+                params.width = (16 * resources.displayMetrics.density).toInt()
+                params.height = (16 * resources.displayMetrics.density).toInt()
+                params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                dayView.layoutParams = params
+                miniGrid.addView(dayView)
             }
 
-            val dayCopy = calendar.clone() as Calendar
-            dayView.setOnClickListener {
-                currentDate.time = dayCopy.time
-                switchToView(ViewMode.DAY)
+            // Click on month to navigate to that month
+            val monthCopy = monthCal.clone() as Calendar
+            monthView.setOnClickListener {
+                currentDate.time = monthCopy.time
+                switchToView(ViewMode.MONTH)
             }
 
             val params = GridLayout.LayoutParams()
             params.width = 0
             params.height = GridLayout.LayoutParams.WRAP_CONTENT
             params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-            dayView.layoutParams = params
-            monthGrid.addView(dayView)
+            params.setMargins(4, 4, 4, 4)
+            monthView.layoutParams = params
+            yearGrid.addView(monthView)
         }
     }
 

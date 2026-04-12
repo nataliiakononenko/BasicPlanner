@@ -4,28 +4,25 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:gravity="center"
     android:padding="4dp"
-    android:minWidth="48dp"
-    android:minHeight="56dp"
+    android:gravity="center"
     android:clickable="true"
     android:focusable="true"
     android:background="?attr/selectableItemBackground">
 
     <TextView
-        android:id="@+id/tv_day"
+        android:id="@+id/tv_month_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="14sp"
-        android:textColor="@color/text_primary" />
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:paddingBottom="4dp" />
 
-    <!-- Always reserve space for indicator to prevent day number from jumping -->
-    <View
-        android:id="@+id/indicator_todos"
-        android:layout_width="6dp"
-        android:layout_height="6dp"
-        android:layout_marginTop="2dp"
-        android:background="@drawable/circle_indicator"
-        android:visibility="invisible" />
+    <GridLayout
+        android:id="@+id/mini_month_grid"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:columnCount="7" />
 
 </LinearLayout>
