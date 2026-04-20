@@ -701,13 +701,21 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 
                 // Show time indicator (8 AM to 8 PM range for time chunks)
                 if (currentHour in 8..19) {
-                    // Calculate position based on time chunks
                     val totalMinutesFromStart = (currentHour - 8) * 60 + currentMinute
                     val totalDisplayMinutes = (20 - 8) * 60 // 8 AM to 8 PM
                     
                     card.post {
-                        val cardHeight = timeIndicatorOverlay.height
-                        val topPosition = (totalMinutesFromStart.toFloat() / totalDisplayMinutes.toFloat() * cardHeight).toInt()
+                        // Measure actual positions of hour 8 and hour 20 label rows
+                        val hour8Row = card.findViewById<View>(R.id.hour_line_8)
+                        val hour20Row = card.findViewById<View>(R.id.hour_line_20)
+                        if (hour8Row == null || hour20Row == null) return@post
+                        
+                        // The hour label line is centered vertically within each row
+                        val hour8Y = hour8Row.top + hour8Row.height / 2
+                        val hour20Y = hour20Row.top + hour20Row.height / 2
+                        val usableSpan = hour20Y - hour8Y
+                        
+                        val topPosition = hour8Y + (totalMinutesFromStart.toFloat() / totalDisplayMinutes.toFloat() * usableSpan).toInt()
                         
                         val currentTimeLine = View(this)
                         currentTimeLine.setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary))
@@ -716,7 +724,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                             FrameLayout.LayoutParams.MATCH_PARENT,
                             (2 * resources.displayMetrics.density).toInt() // 2dp height
                         )
-                        params.topMargin = topPosition
+                        params.topMargin = topPosition - (resources.displayMetrics.density).toInt() // center line on position
                         currentTimeLine.layoutParams = params
                         
                         timeIndicatorOverlay.addView(currentTimeLine)

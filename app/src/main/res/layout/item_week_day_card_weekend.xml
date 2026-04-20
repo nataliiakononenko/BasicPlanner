@@ -97,6 +97,7 @@
 
             <!-- Hour 8 line -->
             <LinearLayout
+                android:id="@+id/hour_line_8"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -151,6 +152,7 @@
 
             <!-- Hour 20 line -->
             <LinearLayout
+                android:id="@+id/hour_line_20"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
