@@ -8,7 +8,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp">
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_title"
@@ -28,7 +31,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/event_notes"
-            android:layout_marginTop="16dp">
+            android:layout_marginTop="8dp">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_notes"
@@ -42,7 +45,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="16dp">
+            android:layout_marginTop="8dp">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -61,7 +64,7 @@
                     android:id="@+id/tv_start_time"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="12dp"
+                    android:padding="8dp"
                     android:background="?attr/selectableItemBackground"
                     android:textSize="16sp"
                     android:textColor="@color/text_primary" />
@@ -85,7 +88,7 @@
                     android:id="@+id/tv_end_time"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="12dp"
+                    android:padding="8dp"
                     android:background="?attr/selectableItemBackground"
                     android:textSize="16sp"
                     android:textColor="@color/text_primary" />
@@ -98,20 +101,20 @@
             android:text="@string/event_recurring"
             android:textSize="14sp"
             android:textColor="@color/text_secondary"
-            android:layout_marginTop="16dp" />
+            android:layout_marginTop="10dp" />
 
         <Spinner
             android:id="@+id/spinner_recurrence"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" />
+            android:layout_marginTop="2dp" />
 
         <LinearLayout
             android:id="@+id/custom_recurrence_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:visibility="gone">
 
             <TextView
@@ -125,7 +128,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="16dp">
+                android:layout_marginTop="10dp">
 
                 <TextView
                     android:layout_width="0dp"
@@ -258,7 +261,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="-8dp">
 
                 <Button
                     android:id="@+id/btn_preset_weekdays"
@@ -294,7 +297,7 @@
                 android:layout_height="wrap_content"
                 android:text="Every other week"
                 android:textSize="13sp"
-                android:layout_marginTop="4dp" />
+                android:layout_marginTop="0dp" />
 
         </LinearLayout>
 
@@ -303,7 +306,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             android:visibility="gone">
 
             <RadioGroup
@@ -330,8 +333,11 @@
                 android:id="@+id/tv_end_date"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
-                android:background="?android:attr/editTextBackground"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:hint="Tap to select end date"
