@@ -207,11 +207,10 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     }
 
     private fun updateDateLabel() {
-        val dateFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
         when (currentViewMode) {
             ViewMode.DAY -> {
                 tvDateLabel.text = SimpleDateFormat("EEEE", Locale.getDefault()).format(currentDate.time)
-                tvDateValue.text = SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(currentDate.time)
+                tvDateValue.text = SimpleDateFormat("d MMMM", Locale.getDefault()).format(currentDate.time)
             }
             ViewMode.WEEK -> {
                 val weekStart = getWeekStartDate(currentDate)
@@ -220,15 +219,15 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val weekNumber = weekStart.get(Calendar.WEEK_OF_YEAR)
                 tvDateLabel.text = "Week $weekNumber"
                 tvDateValue.text = SimpleDateFormat("d MMM", Locale.getDefault()).format(weekStart.time) + " - " +
-                        SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(weekEnd.time)
+                        SimpleDateFormat("d MMM", Locale.getDefault()).format(weekEnd.time)
             }
             ViewMode.MONTH -> {
-                tvDateLabel.text = ""
-                tvDateValue.text = dateFormat.format(currentDate.time)
+                tvDateLabel.text = SimpleDateFormat("MMMM", Locale.getDefault()).format(currentDate.time)
+                tvDateValue.text = currentDate.get(Calendar.YEAR).toString()
             }
             ViewMode.YEAR -> {
-                tvDateLabel.text = ""
-                tvDateValue.text = currentDate.get(Calendar.YEAR).toString()
+                tvDateLabel.text = currentDate.get(Calendar.YEAR).toString()
+                tvDateValue.text = ""
             }
         }
     }

@@ -56,9 +56,9 @@
                 android:textStyle="bold"
                 android:textColor="@color/text_primary" />
 
-            <View
+            <Space
                 android:layout_width="0dp"
-                android:layout_height="0dp"
+                android:layout_height="wrap_content"
                 android:layout_weight="1" />
 
             <TextView
