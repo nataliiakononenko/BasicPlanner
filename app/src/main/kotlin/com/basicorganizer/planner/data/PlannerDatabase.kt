@@ -12,7 +12,7 @@ import java.util.Locale
 class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
         private const val DATABASE_NAME = "PlannerDB"
 
         private const val TABLE_EVENTS = "events"
@@ -26,6 +26,8 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         private const val KEY_END_TIME = "end_time"
         private const val KEY_RECURRENCE_TYPE = "recurrence_type"
         private const val KEY_RECURRENCE_END_DATE = "recurrence_end_date"
+        private const val KEY_CUSTOM_DAYS_MASK = "custom_days_mask"
+        private const val KEY_INTERVAL_WEEKS = "interval_weeks"
         private const val KEY_CREATED_AT = "created_at"
 
         private const val KEY_WEEK_START_DATE = "week_start_date"
@@ -47,6 +49,8 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 $KEY_END_TIME TEXT,
                 $KEY_RECURRENCE_TYPE TEXT,
                 $KEY_RECURRENCE_END_DATE TEXT,
+                $KEY_CUSTOM_DAYS_MASK INTEGER DEFAULT 0,
+                $KEY_INTERVAL_WEEKS INTEGER DEFAULT 1,
                 $KEY_CREATED_AT TEXT
             )
         """.trimIndent()
@@ -73,6 +77,10 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE $TABLE_TODOS ADD COLUMN $KEY_IS_IMPORTANT INTEGER DEFAULT 0")
         }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE $TABLE_EVENTS ADD COLUMN $KEY_CUSTOM_DAYS_MASK INTEGER DEFAULT 0")
+            db.execSQL("ALTER TABLE $TABLE_EVENTS ADD COLUMN $KEY_INTERVAL_WEEKS INTEGER DEFAULT 1")
+        }
     }
 
     // Event methods
@@ -86,6 +94,8 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             put(KEY_END_TIME, event.endTime)
             put(KEY_RECURRENCE_TYPE, event.recurrenceType.name)
             put(KEY_RECURRENCE_END_DATE, event.recurrenceEndDate)
+            put(KEY_CUSTOM_DAYS_MASK, event.customDaysMask)
+            put(KEY_INTERVAL_WEEKS, event.intervalWeeks)
             put(KEY_CREATED_AT, event.createdAt)
         }
         val id = db.insert(TABLE_EVENTS, null, values)
@@ -162,6 +172,25 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 eventCal.get(java.util.Calendar.DAY_OF_MONTH) == checkCal.get(java.util.Calendar.DAY_OF_MONTH) &&
                 eventCal.get(java.util.Calendar.MONTH) == checkCal.get(java.util.Calendar.MONTH)
             }
+            RecurrenceType.CUSTOM -> {
+                val checkCal = java.util.Calendar.getInstance().apply { time = checkDate }
+                // Calendar.DAY_OF_WEEK: Sunday=1..Saturday=7; bit index = day-1.
+                val dayBit = 1 shl (checkCal.get(java.util.Calendar.DAY_OF_WEEK) - 1)
+                if ((event.customDaysMask and dayBit) == 0) return false
+                val interval = if (event.intervalWeeks < 1) 1 else event.intervalWeeks
+                if (interval == 1) return true
+                // For biweekly+: check that the week of the check date aligns with the event's week.
+                val eventCal = java.util.Calendar.getInstance().apply { time = eventDate }
+                // Normalize to start of each week (Monday) to compute difference in weeks.
+                val msPerDay = 86_400_000L
+                val daysBetween = ((checkDate.time - eventDate.time) / msPerDay).toInt()
+                // Shift both dates to the Monday of their week for stable week comparison.
+                val eventDow = (eventCal.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7 // Mon=0..Sun=6
+                val checkDow = (checkCal.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+                val alignedDays = daysBetween - checkDow + eventDow
+                val weekDelta = alignedDays / 7
+                weekDelta >= 0 && weekDelta % interval == 0
+            }
             RecurrenceType.NONE -> false
         }
     }
@@ -171,6 +200,8 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
     private fun cursorToEvent(cursor: android.database.Cursor): Event {
+        val daysIdx = cursor.getColumnIndex(KEY_CUSTOM_DAYS_MASK)
+        val intervalIdx = cursor.getColumnIndex(KEY_INTERVAL_WEEKS)
         return Event(
             id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID)),
             title = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TITLE)),
@@ -180,6 +211,8 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             endTime = cursor.getString(cursor.getColumnIndexOrThrow(KEY_END_TIME)),
             recurrenceType = RecurrenceType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(KEY_RECURRENCE_TYPE))),
             recurrenceEndDate = cursor.getString(cursor.getColumnIndexOrThrow(KEY_RECURRENCE_END_DATE)),
+            customDaysMask = if (daysIdx >= 0) cursor.getInt(daysIdx) else 0,
+            intervalWeeks = if (intervalIdx >= 0) cursor.getInt(intervalIdx).coerceAtLeast(1) else 1,
             createdAt = cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREATED_AT))
         )
     }
@@ -194,6 +227,8 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             put(KEY_END_TIME, event.endTime)
             put(KEY_RECURRENCE_TYPE, event.recurrenceType.name)
             put(KEY_RECURRENCE_END_DATE, event.recurrenceEndDate)
+            put(KEY_CUSTOM_DAYS_MASK, event.customDaysMask)
+            put(KEY_INTERVAL_WEEKS, event.intervalWeeks)
         }
         val result = db.update(TABLE_EVENTS, values, "$KEY_ID = ?", arrayOf(event.id.toString()))
         db.close()

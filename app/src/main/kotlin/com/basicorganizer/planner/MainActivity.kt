@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.basicorganizer.planner.adapter.TodoAdapter
 import com.basicorganizer.planner.data.*
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.textfield.TextInputLayout
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private lateinit var fabAdd: FloatingActionButton
 
     private lateinit var database: PlannerDatabase
+    private lateinit var settings: PlannerSettings
 
     private var currentDate: Calendar = Calendar.getInstance()
     private var currentViewMode: ViewMode = ViewMode.WEEK
@@ -54,6 +56,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         setContentView(R.layout.activity_main)
 
         database = PlannerDatabase(this)
+        settings = PlannerSettings(this)
+        firstDayOfWeek = settings.firstDayOfWeek
         initializeViews()
         setupToolbar()
         setupViewSwitcher()
@@ -118,7 +122,49 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             switchToView(ViewMode.YEAR)
             drawerLayout.closeDrawer(GravityCompat.START)
         }
+        navView.findViewById<View>(R.id.nav_settings).setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.START)
+            showSettingsDialog()
+        }
         updateViewButtons()
+    }
+
+    private fun showSettingsDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_settings, null)
+        val rgDateFormat = dialogView.findViewById<RadioGroup>(R.id.rg_date_format)
+        val rgFirstDay = dialogView.findViewById<RadioGroup>(R.id.rg_first_day)
+        val rbMonday = dialogView.findViewById<RadioButton>(R.id.rb_monday)
+        val rbSunday = dialogView.findViewById<RadioButton>(R.id.rb_sunday)
+
+        // Populate date format options dynamically
+        val currentPattern = settings.dateFormatPattern
+        val formatRadioIds = mutableListOf<Pair<Int, String>>()
+        for ((pattern, label) in PlannerSettings.DATE_FORMAT_OPTIONS) {
+            val rb = RadioButton(this)
+            rb.text = label
+            rb.id = View.generateViewId()
+            rgDateFormat.addView(rb)
+            formatRadioIds.add(rb.id to pattern)
+            if (pattern == currentPattern) rb.isChecked = true
+        }
+
+        // First day of week
+        if (settings.firstDayOfWeek == Calendar.SUNDAY) rbSunday.isChecked = true else rbMonday.isChecked = true
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings)
+            .setView(dialogView)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val checkedId = rgDateFormat.checkedRadioButtonId
+                val newPattern = formatRadioIds.firstOrNull { it.first == checkedId }?.second
+                if (newPattern != null) settings.dateFormatPattern = newPattern
+                val newFirstDay = if (rgFirstDay.checkedRadioButtonId == R.id.rb_sunday) Calendar.SUNDAY else Calendar.MONDAY
+                settings.firstDayOfWeek = newFirstDay
+                firstDayOfWeek = newFirstDay
+                loadData()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun setupNavigation() {
@@ -1077,34 +1123,83 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val tvStartTime = dialogView.findViewById<TextView>(R.id.tv_start_time)
         val tvEndTime = dialogView.findViewById<TextView>(R.id.tv_end_time)
         val spinnerRecurrence = dialogView.findViewById<Spinner>(R.id.spinner_recurrence)
+        val customContainer = dialogView.findViewById<View>(R.id.custom_recurrence_container)
         val recurrenceEndContainer = dialogView.findViewById<View>(R.id.recurrence_end_container)
         val rgRecurrenceEnd = dialogView.findViewById<RadioGroup>(R.id.rg_recurrence_end)
         val tvEndDate = dialogView.findViewById<TextView>(R.id.tv_end_date)
 
+        // Day checkboxes ordered Mon..Sun for UI; mapped to bit indices Sun=0..Sat=6.
+        val dayCheckboxes = listOf(
+            dialogView.findViewById<CheckBox>(R.id.cb_day_mon),
+            dialogView.findViewById<CheckBox>(R.id.cb_day_tue),
+            dialogView.findViewById<CheckBox>(R.id.cb_day_wed),
+            dialogView.findViewById<CheckBox>(R.id.cb_day_thu),
+            dialogView.findViewById<CheckBox>(R.id.cb_day_fri),
+            dialogView.findViewById<CheckBox>(R.id.cb_day_sat),
+            dialogView.findViewById<CheckBox>(R.id.cb_day_sun)
+        )
+        // Bit indices: Sun=0, Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6
+        val uiDayBits = intArrayOf(1, 2, 3, 4, 5, 6, 0) // positions: Mon..Sun
+        val btnPresetWeekdays = dialogView.findViewById<View>(R.id.btn_preset_weekdays)
+        val btnPresetWeekends = dialogView.findViewById<View>(R.id.btn_preset_weekends)
+        val btnPresetClear = dialogView.findViewById<View>(R.id.btn_preset_clear)
+        val cbBiweekly = dialogView.findViewById<CheckBox>(R.id.cb_biweekly)
+
         var startTime = event?.startTime ?: prefilledStartTime ?: "09:00"
         var endTime = event?.endTime ?: prefilledEndTime ?: "10:00"
-        var endDate = event?.recurrenceEndDate
+        // Default the recurrence end date to one week from today when none is set yet.
+        var endDate = event?.recurrenceEndDate ?: run {
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 7) }
+            getDateString(cal)
+        }
 
         etTitle.setText(event?.title ?: "")
         etNotes.setText(event?.notes ?: "")
         tvStartTime.text = startTime
         tvEndTime.text = endTime
+        // Show end date pre-filled in the user's preferred format (DB stays ISO yyyy-MM-dd).
+        tvEndDate.text = settings.isoToDisplay(endDate)
+
+        // Initialize custom panel state from event
+        if (event?.recurrenceType == RecurrenceType.CUSTOM) {
+            for (i in dayCheckboxes.indices) {
+                dayCheckboxes[i].isChecked = (event.customDaysMask and (1 shl uiDayBits[i])) != 0
+            }
+            cbBiweekly.isChecked = event.intervalWeeks == 2
+        }
 
         val recurrenceOptions = listOf(
             getString(R.string.recurrence_none),
             getString(R.string.recurrence_daily),
             getString(R.string.recurrence_weekly),
             getString(R.string.recurrence_monthly),
-            getString(R.string.recurrence_yearly)
+            getString(R.string.recurrence_yearly),
+            "Custom"
         )
+        // Map spinner positions to RecurrenceType enum ordinals:
+        // 0=NONE, 1=DAILY, 2=WEEKLY, 3=MONTHLY, 4=YEARLY, 5=CUSTOM
         spinnerRecurrence.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, recurrenceOptions)
         spinnerRecurrence.setSelection(event?.recurrenceType?.ordinal ?: 0)
 
         spinnerRecurrence.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 recurrenceEndContainer.visibility = if (position > 0) View.VISIBLE else View.GONE
+                customContainer.visibility = if (position == RecurrenceType.CUSTOM.ordinal) View.VISIBLE else View.GONE
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        btnPresetWeekdays.setOnClickListener {
+            // Mon..Fri (positions 0..4)
+            for (i in dayCheckboxes.indices) dayCheckboxes[i].isChecked = i in 0..4
+        }
+        btnPresetWeekends.setOnClickListener {
+            // Sat (5), Sun (6)
+            for (i in dayCheckboxes.indices) dayCheckboxes[i].isChecked = i in 5..6
+        }
+        btnPresetClear.setOnClickListener {
+            for (cb in dayCheckboxes) cb.isChecked = false
+            cbBiweekly.isChecked = false
         }
 
         tvStartTime.setOnClickListener {
@@ -1126,49 +1221,18 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         }
 
         tvEndDate.setOnClickListener {
-            showDatePicker { date ->
+            showDatePicker(endDate) { date ->
                 endDate = date
-                tvEndDate.text = date
+                tvEndDate.text = settings.isoToDisplay(date)
             }
         }
+
+        val tilTitle = dialogView.findViewById<TextInputLayout>(R.id.til_title)
 
         val dialog = AlertDialog.Builder(this)
             .setTitle(if (event == null) R.string.add_event else R.string.edit_event)
             .setView(dialogView)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val title = etTitle.text.toString().trim()
-                if (title.isNotEmpty()) {
-                    val recurrenceType = RecurrenceType.values()[spinnerRecurrence.selectedItemPosition]
-                    val recurrenceEnd = if (recurrenceType != RecurrenceType.NONE && rgRecurrenceEnd.checkedRadioButtonId == R.id.rb_until) endDate else null
-
-                    if (event == null) {
-                        val newEvent = Event(
-                            title = title,
-                            notes = etNotes.text.toString(),
-                            date = getDateString(currentDate),
-                            startTime = startTime,
-                            endTime = endTime,
-                            recurrenceType = recurrenceType,
-                            recurrenceEndDate = recurrenceEnd,
-                            createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                        )
-                        val eventId = database.addEvent(newEvent)
-                        android.util.Log.d("MainActivity", "Event saved with ID: $eventId, time: $startTime-$endTime")
-                        android.widget.Toast.makeText(this, "Event saved", android.widget.Toast.LENGTH_SHORT).show()
-                    } else {
-                        event.title = title
-                        event.notes = etNotes.text.toString()
-                        event.startTime = startTime
-                        event.endTime = endTime
-                        event.recurrenceType = recurrenceType
-                        event.recurrenceEndDate = recurrenceEnd
-                        database.updateEvent(event)
-                        android.util.Log.d("MainActivity", "Event updated: ${event.id}, time: $startTime-$endTime")
-                        android.widget.Toast.makeText(this, "Event updated", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                    loadData()
-                }
-            }
+            .setPositiveButton(R.string.save, null)
             .setNegativeButton(R.string.cancel, null)
             .apply {
                 if (event != null) {
@@ -1181,12 +1245,71 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             .create()
 
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    tilTitle.error = "Title is required"
+                    etTitle.requestFocus()
+                    return@setOnClickListener
+                }
+                tilTitle.error = null
+
+                var recurrenceType = RecurrenceType.values()[spinnerRecurrence.selectedItemPosition]
+                val recurrenceEnd = if (recurrenceType != RecurrenceType.NONE && rgRecurrenceEnd.checkedRadioButtonId == R.id.rb_until) endDate else null
+
+                // Build custom days mask from UI
+                var customMask = 0
+                for (i in dayCheckboxes.indices) {
+                    if (dayCheckboxes[i].isChecked) customMask = customMask or (1 shl uiDayBits[i])
+                }
+                val intervalWeeks = if (cbBiweekly.isChecked) 2 else 1
+
+                // If user chose Custom but selected zero days, fall back to NONE to avoid empty recurrence
+                if (recurrenceType == RecurrenceType.CUSTOM && customMask == 0) {
+                    recurrenceType = RecurrenceType.NONE
+                }
+
+                if (event == null) {
+                    val newEvent = Event(
+                        title = title,
+                        notes = etNotes.text.toString(),
+                        date = getDateString(currentDate),
+                        startTime = startTime,
+                        endTime = endTime,
+                        recurrenceType = recurrenceType,
+                        recurrenceEndDate = recurrenceEnd,
+                        customDaysMask = if (recurrenceType == RecurrenceType.CUSTOM) customMask else 0,
+                        intervalWeeks = if (recurrenceType == RecurrenceType.CUSTOM) intervalWeeks else 1,
+                        createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                    )
+                    val eventId = database.addEvent(newEvent)
+                    android.util.Log.d("MainActivity", "Event saved with ID: $eventId, time: $startTime-$endTime")
+                    android.widget.Toast.makeText(this, "Event saved", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    event.title = title
+                    event.notes = etNotes.text.toString()
+                    event.startTime = startTime
+                    event.endTime = endTime
+                    event.recurrenceType = recurrenceType
+                    event.recurrenceEndDate = recurrenceEnd
+                    event.customDaysMask = if (recurrenceType == RecurrenceType.CUSTOM) customMask else 0
+                    event.intervalWeeks = if (recurrenceType == RecurrenceType.CUSTOM) intervalWeeks else 1
+                    database.updateEvent(event)
+                    android.util.Log.d("MainActivity", "Event updated: ${event.id}, time: $startTime-$endTime")
+                    android.widget.Toast.makeText(this, "Event updated", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                loadData()
+                dialog.dismiss()
+            }
+        }
         dialog.show()
     }
 
     private fun showTodoDialog(todo: TodoItem?) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
+        val tilTitle = dialogView.findViewById<TextInputLayout>(R.id.til_todo_title)
         val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
         val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
 
@@ -1202,30 +1325,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val dialog = AlertDialog.Builder(this)
             .setTitle(if (todo == null) R.string.add_todo else R.string.edit_todo)
             .setView(dialogView)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val title = etTitle.text.toString().trim()
-                if (title.isNotEmpty()) {
-                    if (todo == null) {
-                        val scope = if (currentViewMode == ViewMode.WEEK) TodoScope.WEEK else TodoScope.DAY
-                        val newTodo = TodoItem(
-                            title = title,
-                            date = getDateString(currentDate),
-                            weekStartDate = if (scope == TodoScope.WEEK) getDateString(getWeekStartDate(currentDate)) else null,
-                            scope = scope,
-                            moveToNext = cbMoveToNext.isChecked,
-                            isImportant = cbImportant.isChecked,
-                            createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                        )
-                        database.addTodo(newTodo)
-                    } else {
-                        todo.title = title
-                        todo.moveToNext = cbMoveToNext.isChecked
-                        todo.isImportant = cbImportant.isChecked
-                        database.updateTodo(todo)
-                    }
-                    loadData()
-                }
-            }
+            .setPositiveButton(R.string.save, null)
             .setNegativeButton(R.string.cancel, null)
             .apply {
                 if (todo != null) {
@@ -1244,6 +1344,35 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.showSoftInput(etTitle, InputMethodManager.SHOW_FORCED)
             }, 100)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    tilTitle.error = "Task is required"
+                    etTitle.requestFocus()
+                    return@setOnClickListener
+                }
+                tilTitle.error = null
+                if (todo == null) {
+                    val scope = if (currentViewMode == ViewMode.WEEK) TodoScope.WEEK else TodoScope.DAY
+                    val newTodo = TodoItem(
+                        title = title,
+                        date = getDateString(currentDate),
+                        weekStartDate = if (scope == TodoScope.WEEK) getDateString(getWeekStartDate(currentDate)) else null,
+                        scope = scope,
+                        moveToNext = cbMoveToNext.isChecked,
+                        isImportant = cbImportant.isChecked,
+                        createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                    )
+                    database.addTodo(newTodo)
+                } else {
+                    todo.title = title
+                    todo.moveToNext = cbMoveToNext.isChecked
+                    todo.isImportant = cbImportant.isChecked
+                    database.updateTodo(todo)
+                }
+                loadData()
+                dialog.dismiss()
+            }
         }
         dialog.show()
     }
@@ -1258,12 +1387,21 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         }, hour, minute, true).show()
     }
 
-    private fun showDatePicker(onDateSelected: (String) -> Unit) {
+    private fun showDatePicker(initialIsoDate: String? = null, onDateSelected: (String) -> Unit) {
+        val baseCal = Calendar.getInstance()
+        if (initialIsoDate != null) {
+            try {
+                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(initialIsoDate)
+                if (parsed != null) baseCal.time = parsed
+            } catch (_: Exception) { /* keep today */ }
+        } else {
+            baseCal.time = currentDate.time
+        }
         DatePickerDialog(this, { _, year, month, day ->
             val cal = Calendar.getInstance()
             cal.set(year, month, day)
             onDateSelected(getDateString(cal))
-        }, currentDate.get(Calendar.YEAR), currentDate.get(Calendar.MONTH), currentDate.get(Calendar.DAY_OF_MONTH)).show()
+        }, baseCal.get(Calendar.YEAR), baseCal.get(Calendar.MONTH), baseCal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
     override fun onTodoCheckedChanged(todo: TodoItem, isChecked: Boolean) {
@@ -1280,6 +1418,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private fun showMonthTodoDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
+        val tilTitle = dialogView.findViewById<TextInputLayout>(R.id.til_todo_title)
         val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
         val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
         
@@ -1288,23 +1427,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val dialog = AlertDialog.Builder(this)
             .setTitle("Add Monthly Goal")
             .setView(dialogView)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val title = etTitle.text.toString().trim()
-                if (title.isNotEmpty()) {
-                    val monthYear = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(currentDate.time)
-                    val newTodo = TodoItem(
-                        title = title,
-                        date = monthYear,
-                        weekStartDate = null,
-                        scope = TodoScope.MONTH,
-                        moveToNext = cbMoveToNext.isChecked,
-                        isImportant = cbImportant.isChecked,
-                        createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                    )
-                    database.addTodo(newTodo)
-                    loadData()
-                }
-            }
+            .setPositiveButton(R.string.save, null)
             .setNegativeButton(R.string.cancel, null)
             .create()
 
@@ -1315,6 +1438,28 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.showSoftInput(etTitle, InputMethodManager.SHOW_FORCED)
             }, 100)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    tilTitle.error = "Task is required"
+                    etTitle.requestFocus()
+                    return@setOnClickListener
+                }
+                tilTitle.error = null
+                val monthYear = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(currentDate.time)
+                val newTodo = TodoItem(
+                    title = title,
+                    date = monthYear,
+                    weekStartDate = null,
+                    scope = TodoScope.MONTH,
+                    moveToNext = cbMoveToNext.isChecked,
+                    isImportant = cbImportant.isChecked,
+                    createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                )
+                database.addTodo(newTodo)
+                loadData()
+                dialog.dismiss()
+            }
         }
         dialog.show()
     }
@@ -1322,6 +1467,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private fun showYearTodoDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
+        val tilTitle = dialogView.findViewById<TextInputLayout>(R.id.til_todo_title)
         val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
         val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
         
@@ -1331,23 +1477,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val dialog = AlertDialog.Builder(this)
             .setTitle("Add Yearly Goal")
             .setView(dialogView)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val title = etTitle.text.toString().trim()
-                if (title.isNotEmpty()) {
-                    val year = currentDate.get(Calendar.YEAR).toString()
-                    val newTodo = TodoItem(
-                        title = title,
-                        date = year,
-                        weekStartDate = null,
-                        scope = TodoScope.YEAR,
-                        moveToNext = false,
-                        isImportant = cbImportant.isChecked,
-                        createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                    )
-                    database.addTodo(newTodo)
-                    loadData()
-                }
-            }
+            .setPositiveButton(R.string.save, null)
             .setNegativeButton(R.string.cancel, null)
             .create()
 
@@ -1358,6 +1488,28 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.showSoftInput(etTitle, InputMethodManager.SHOW_FORCED)
             }, 100)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    tilTitle.error = "Task is required"
+                    etTitle.requestFocus()
+                    return@setOnClickListener
+                }
+                tilTitle.error = null
+                val year = currentDate.get(Calendar.YEAR).toString()
+                val newTodo = TodoItem(
+                    title = title,
+                    date = year,
+                    weekStartDate = null,
+                    scope = TodoScope.YEAR,
+                    moveToNext = false,
+                    isImportant = cbImportant.isChecked,
+                    createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                )
+                database.addTodo(newTodo)
+                loadData()
+                dialog.dismiss()
+            }
         }
         dialog.show()
     }
