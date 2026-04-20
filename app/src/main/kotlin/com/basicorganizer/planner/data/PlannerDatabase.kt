@@ -4,11 +4,15 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
         private const val DATABASE_NAME = "PlannerDB"
 
         private const val TABLE_EVENTS = "events"
@@ -27,6 +31,7 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         private const val KEY_WEEK_START_DATE = "week_start_date"
         private const val KEY_SCOPE = "scope"
         private const val KEY_MOVE_TO_NEXT = "move_to_next"
+        private const val KEY_IS_IMPORTANT = "is_important"
         private const val KEY_IS_COMPLETED = "is_completed"
         private const val KEY_COMPLETED_DATE = "completed_date"
     }
@@ -55,6 +60,7 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 $KEY_WEEK_START_DATE TEXT,
                 $KEY_SCOPE TEXT,
                 $KEY_MOVE_TO_NEXT INTEGER,
+                $KEY_IS_IMPORTANT INTEGER DEFAULT 0,
                 $KEY_IS_COMPLETED INTEGER,
                 $KEY_COMPLETED_DATE TEXT,
                 $KEY_CREATED_AT TEXT
@@ -64,7 +70,9 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Handle future migrations
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE $TABLE_TODOS ADD COLUMN $KEY_IS_IMPORTANT INTEGER DEFAULT 0")
+        }
     }
 
     // Event methods
@@ -211,6 +219,7 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             put(KEY_WEEK_START_DATE, todo.weekStartDate)
             put(KEY_SCOPE, todo.scope.name)
             put(KEY_MOVE_TO_NEXT, if (todo.moveToNext) 1 else 0)
+            put(KEY_IS_IMPORTANT, if (todo.isImportant) 1 else 0)
             put(KEY_IS_COMPLETED, if (todo.isCompleted) 1 else 0)
             put(KEY_COMPLETED_DATE, todo.completedDate)
             put(KEY_CREATED_AT, todo.createdAt)
@@ -224,13 +233,24 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         val todos = mutableListOf<TodoItem>()
         val db = readableDatabase
 
-        // Get day-scoped todos for this date (either created for this date or moved here)
-        val cursor = db.query(
-            TABLE_TODOS, null,
-            "$KEY_SCOPE = ? AND (($KEY_DATE = ? AND $KEY_IS_COMPLETED = 0) OR ($KEY_DATE <= ? AND $KEY_MOVE_TO_NEXT = 1 AND $KEY_IS_COMPLETED = 0) OR ($KEY_COMPLETED_DATE = ?))",
-            arrayOf(TodoScope.DAY.name, date, date, date),
-            null, null, "$KEY_IS_COMPLETED ASC, $KEY_CREATED_AT ASC"
-        )
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        // If the target date is in the future, don't carry forward move-to-next todos;
+        // only show todos actually created on this date (or completed on this date).
+        val cursor = if (date > today) {
+            db.query(
+                TABLE_TODOS, null,
+                "$KEY_SCOPE = ? AND (($KEY_DATE = ? AND $KEY_IS_COMPLETED = 0) OR ($KEY_COMPLETED_DATE = ?))",
+                arrayOf(TodoScope.DAY.name, date, date),
+                null, null, "$KEY_IS_COMPLETED ASC, $KEY_IS_IMPORTANT DESC, $KEY_CREATED_AT ASC"
+            )
+        } else {
+            db.query(
+                TABLE_TODOS, null,
+                "$KEY_SCOPE = ? AND (($KEY_DATE = ? AND $KEY_IS_COMPLETED = 0) OR ($KEY_DATE <= ? AND $KEY_MOVE_TO_NEXT = 1 AND $KEY_IS_COMPLETED = 0) OR ($KEY_COMPLETED_DATE = ?))",
+                arrayOf(TodoScope.DAY.name, date, date, date),
+                null, null, "$KEY_IS_COMPLETED ASC, $KEY_IS_IMPORTANT DESC, $KEY_CREATED_AT ASC"
+            )
+        }
 
         if (cursor.moveToFirst()) {
             do {
@@ -246,12 +266,23 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         val todos = mutableListOf<TodoItem>()
         val db = readableDatabase
 
-        val cursor = db.query(
-            TABLE_TODOS, null,
-            "$KEY_SCOPE = ? AND (($KEY_WEEK_START_DATE = ? AND $KEY_IS_COMPLETED = 0) OR ($KEY_WEEK_START_DATE <= ? AND $KEY_MOVE_TO_NEXT = 1 AND $KEY_IS_COMPLETED = 0) OR ($KEY_WEEK_START_DATE = ? AND $KEY_IS_COMPLETED = 1))",
-            arrayOf(TodoScope.WEEK.name, weekStartDate, weekStartDate, weekStartDate),
-            null, null, "$KEY_IS_COMPLETED ASC, $KEY_CREATED_AT ASC"
-        )
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        // If the week starts after today, it's a future week: don't carry forward move-to-next todos.
+        val cursor = if (weekStartDate > today) {
+            db.query(
+                TABLE_TODOS, null,
+                "$KEY_SCOPE = ? AND (($KEY_WEEK_START_DATE = ? AND $KEY_IS_COMPLETED = 0) OR ($KEY_WEEK_START_DATE = ? AND $KEY_IS_COMPLETED = 1))",
+                arrayOf(TodoScope.WEEK.name, weekStartDate, weekStartDate),
+                null, null, "$KEY_IS_COMPLETED ASC, $KEY_IS_IMPORTANT DESC, $KEY_CREATED_AT ASC"
+            )
+        } else {
+            db.query(
+                TABLE_TODOS, null,
+                "$KEY_SCOPE = ? AND (($KEY_WEEK_START_DATE = ? AND $KEY_IS_COMPLETED = 0) OR ($KEY_WEEK_START_DATE <= ? AND $KEY_MOVE_TO_NEXT = 1 AND $KEY_IS_COMPLETED = 0) OR ($KEY_WEEK_START_DATE = ? AND $KEY_IS_COMPLETED = 1))",
+                arrayOf(TodoScope.WEEK.name, weekStartDate, weekStartDate, weekStartDate),
+                null, null, "$KEY_IS_COMPLETED ASC, $KEY_IS_IMPORTANT DESC, $KEY_CREATED_AT ASC"
+            )
+        }
 
         if (cursor.moveToFirst()) {
             do {
@@ -264,6 +295,7 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
     private fun cursorToTodo(cursor: android.database.Cursor): TodoItem {
+        val importantIdx = cursor.getColumnIndex(KEY_IS_IMPORTANT)
         return TodoItem(
             id = cursor.getLong(cursor.getColumnIndexOrThrow(KEY_ID)),
             title = cursor.getString(cursor.getColumnIndexOrThrow(KEY_TITLE)),
@@ -271,6 +303,7 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             weekStartDate = cursor.getString(cursor.getColumnIndexOrThrow(KEY_WEEK_START_DATE)),
             scope = TodoScope.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(KEY_SCOPE))),
             moveToNext = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_MOVE_TO_NEXT)) == 1,
+            isImportant = if (importantIdx >= 0) cursor.getInt(importantIdx) == 1 else false,
             isCompleted = cursor.getInt(cursor.getColumnIndexOrThrow(KEY_IS_COMPLETED)) == 1,
             completedDate = cursor.getString(cursor.getColumnIndexOrThrow(KEY_COMPLETED_DATE)),
             createdAt = cursor.getString(cursor.getColumnIndexOrThrow(KEY_CREATED_AT))
@@ -285,6 +318,7 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             put(KEY_WEEK_START_DATE, todo.weekStartDate)
             put(KEY_SCOPE, todo.scope.name)
             put(KEY_MOVE_TO_NEXT, if (todo.moveToNext) 1 else 0)
+            put(KEY_IS_IMPORTANT, if (todo.isImportant) 1 else 0)
             put(KEY_IS_COMPLETED, if (todo.isCompleted) 1 else 0)
             put(KEY_COMPLETED_DATE, todo.completedDate)
         }
@@ -317,22 +351,12 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             "$KEY_SCOPE = ? AND $KEY_DATE = ?",
             arrayOf(TodoScope.MONTH.name, monthYear),
             null, null,
-            "$KEY_IS_COMPLETED ASC, $KEY_CREATED_AT DESC"
+            "$KEY_IS_COMPLETED ASC, $KEY_IS_IMPORTANT DESC, $KEY_CREATED_AT DESC"
         )
         
         cursor.use {
             while (it.moveToNext()) {
-                todos.add(TodoItem(
-                    id = it.getLong(it.getColumnIndexOrThrow(KEY_ID)),
-                    title = it.getString(it.getColumnIndexOrThrow(KEY_TITLE)),
-                    date = it.getString(it.getColumnIndexOrThrow(KEY_DATE)),
-                    weekStartDate = it.getString(it.getColumnIndexOrThrow(KEY_WEEK_START_DATE)),
-                    scope = TodoScope.valueOf(it.getString(it.getColumnIndexOrThrow(KEY_SCOPE))),
-                    moveToNext = it.getInt(it.getColumnIndexOrThrow(KEY_MOVE_TO_NEXT)) == 1,
-                    isCompleted = it.getInt(it.getColumnIndexOrThrow(KEY_IS_COMPLETED)) == 1,
-                    completedDate = it.getString(it.getColumnIndexOrThrow(KEY_COMPLETED_DATE)),
-                    createdAt = it.getString(it.getColumnIndexOrThrow(KEY_CREATED_AT))
-                ))
+                todos.add(cursorToTodo(it))
             }
         }
         
@@ -349,22 +373,12 @@ class PlannerDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             "$KEY_SCOPE = ? AND $KEY_DATE = ?",
             arrayOf(TodoScope.YEAR.name, year),
             null, null,
-            "$KEY_IS_COMPLETED ASC, $KEY_CREATED_AT DESC"
+            "$KEY_IS_COMPLETED ASC, $KEY_IS_IMPORTANT DESC, $KEY_CREATED_AT DESC"
         )
         
         cursor.use {
             while (it.moveToNext()) {
-                todos.add(TodoItem(
-                    id = it.getLong(it.getColumnIndexOrThrow(KEY_ID)),
-                    title = it.getString(it.getColumnIndexOrThrow(KEY_TITLE)),
-                    date = it.getString(it.getColumnIndexOrThrow(KEY_DATE)),
-                    weekStartDate = it.getString(it.getColumnIndexOrThrow(KEY_WEEK_START_DATE)),
-                    scope = TodoScope.valueOf(it.getString(it.getColumnIndexOrThrow(KEY_SCOPE))),
-                    moveToNext = it.getInt(it.getColumnIndexOrThrow(KEY_MOVE_TO_NEXT)) == 1,
-                    isCompleted = it.getInt(it.getColumnIndexOrThrow(KEY_IS_COMPLETED)) == 1,
-                    completedDate = it.getString(it.getColumnIndexOrThrow(KEY_COMPLETED_DATE)),
-                    createdAt = it.getString(it.getColumnIndexOrThrow(KEY_CREATED_AT))
-                ))
+                todos.add(cursorToTodo(it))
             }
         }
         

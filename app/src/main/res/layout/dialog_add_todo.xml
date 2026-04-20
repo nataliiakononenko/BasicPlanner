@@ -20,11 +20,19 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <CheckBox
+        android:id="@+id/cb_important"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mark as important"
+        android:checked="false"
+        android:layout_marginTop="16dp" />
+
+    <CheckBox
         android:id="@+id/cb_move_to_next"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/todo_move_next"
-        android:checked="true"
-        android:layout_marginTop="16dp" />
+        android:checked="false"
+        android:layout_marginTop="4dp" />
 
 </LinearLayout>

@@ -210,7 +210,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         when (currentViewMode) {
             ViewMode.DAY -> {
                 tvDateLabel.text = SimpleDateFormat("EEEE", Locale.getDefault()).format(currentDate.time)
-                tvDateValue.text = SimpleDateFormat("d MMMM", Locale.getDefault()).format(currentDate.time)
+                tvDateValue.text = SimpleDateFormat("d MMM", Locale.getDefault()).format(currentDate.time)
             }
             ViewMode.WEEK -> {
                 val weekStart = getWeekStartDate(currentDate)
@@ -1188,9 +1188,11 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
         val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
+        val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
 
         etTitle.setText(todo?.title ?: "")
-        cbMoveToNext.isChecked = todo?.moveToNext ?: true
+        cbMoveToNext.isChecked = todo?.moveToNext ?: false
+        cbImportant.isChecked = todo?.isImportant ?: false
 
         // Update checkbox text based on current view
         if (currentViewMode == ViewMode.WEEK) {
@@ -1211,12 +1213,14 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                             weekStartDate = if (scope == TodoScope.WEEK) getDateString(getWeekStartDate(currentDate)) else null,
                             scope = scope,
                             moveToNext = cbMoveToNext.isChecked,
+                            isImportant = cbImportant.isChecked,
                             createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                         )
                         database.addTodo(newTodo)
                     } else {
                         todo.title = title
                         todo.moveToNext = cbMoveToNext.isChecked
+                        todo.isImportant = cbImportant.isChecked
                         database.updateTodo(todo)
                     }
                     loadData()
@@ -1277,6 +1281,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
         val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
+        val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
         
         cbMoveToNext.text = "Move to next month if not completed"
 
@@ -1293,6 +1298,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                         weekStartDate = null,
                         scope = TodoScope.MONTH,
                         moveToNext = cbMoveToNext.isChecked,
+                        isImportant = cbImportant.isChecked,
                         createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                     )
                     database.addTodo(newTodo)
@@ -1317,8 +1323,10 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
         val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
         val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
+        val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
         
-        cbMoveToNext.text = "Move to next year if not completed"
+        // Yearly goals should not be pushed forward automatically
+        cbMoveToNext.visibility = View.GONE
 
         val dialog = AlertDialog.Builder(this)
             .setTitle("Add Yearly Goal")
@@ -1332,7 +1340,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                         date = year,
                         weekStartDate = null,
                         scope = TodoScope.YEAR,
-                        moveToNext = cbMoveToNext.isChecked,
+                        moveToNext = false,
+                        isImportant = cbImportant.isChecked,
                         createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
                     )
                     database.addTodo(newTodo)

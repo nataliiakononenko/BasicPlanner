@@ -2,6 +2,7 @@ package com.basicorganizer.planner.adapter
 
 import android.content.Context
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -43,6 +44,11 @@ class TodoAdapter(
             holder.tvTitle.setTextColor(ContextCompat.getColor(context, R.color.todo_unchecked))
             holder.tvTitle.paintFlags = holder.tvTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
+
+        holder.tvTitle.setTypeface(
+            null,
+            if (todo.isImportant && !todo.isCompleted) Typeface.BOLD else Typeface.NORMAL
+        )
 
         holder.ivMoveIndicator.visibility = if (todo.moveToNext && !todo.isCompleted) View.VISIBLE else View.GONE
 
