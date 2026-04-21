@@ -65,4 +65,9 @@
     <string name="tasks_month">Tasks for the month</string>
     <string name="tasks_year">Goals for the year</string>
     <string name="add_task">Add Task</string>
+    <string name="task_scope_label">Add to:</string>
+    <string name="task_scope_day">Today</string>
+    <string name="task_scope_week">This week</string>
+    <string name="task_scope_month">This month</string>
+    <string name="task_scope_year">This year</string>
 </resources>

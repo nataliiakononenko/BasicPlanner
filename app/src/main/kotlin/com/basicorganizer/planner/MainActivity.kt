@@ -1219,37 +1219,109 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val yearTodos = database.getTodosForYear(yearStr)
         loadTasksIntoContainer(tasksYearContainer, yearTodos)
         
-        // Setup FAB menu
+        // Setup FAB - opens unified add-task dialog with scope dropdown
         val fabAddTask = tasksView.findViewById<FloatingActionButton>(R.id.fab_add_task)
-        val fabMenuOverlay = tasksView.findViewById<LinearLayout>(R.id.fab_menu_overlay)
-        val fabMenuDay = tasksView.findViewById<TextView>(R.id.fab_menu_day)
-        val fabMenuWeek = tasksView.findViewById<TextView>(R.id.fab_menu_week)
-        val fabMenuMonth = tasksView.findViewById<TextView>(R.id.fab_menu_month)
-        val fabMenuYear = tasksView.findViewById<TextView>(R.id.fab_menu_year)
-        
         fabAddTask.setOnClickListener {
-            fabMenuOverlay.visibility = if (fabMenuOverlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            showAddTaskDialog()
+        }
+    }
+    
+    private fun showAddTaskDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_task, null)
+        val etTitle = dialogView.findViewById<EditText>(R.id.et_task_title)
+        val tilTitle = dialogView.findViewById<TextInputLayout>(R.id.til_task_title)
+        val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_task_important)
+        val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_task_move_to_next)
+        val spinnerScope = dialogView.findViewById<Spinner>(R.id.spinner_task_scope)
+        
+        // Scope options: Day (default), Week, Month, Year
+        val scopes = listOf(TodoScope.DAY, TodoScope.WEEK, TodoScope.MONTH, TodoScope.YEAR)
+        val scopeLabels = listOf(
+            getString(R.string.task_scope_day),
+            getString(R.string.task_scope_week),
+            getString(R.string.task_scope_month),
+            getString(R.string.task_scope_year)
+        )
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, scopeLabels)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerScope.adapter = adapter
+        spinnerScope.setSelection(0) // Day by default
+        
+        // Show/hide move-to-next based on scope (only DAY/WEEK support it)
+        spinnerScope.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val scope = scopes[position]
+                cbMoveToNext.visibility = if (scope == TodoScope.DAY || scope == TodoScope.WEEK) View.VISIBLE else View.GONE
+                if (scope != TodoScope.DAY && scope != TodoScope.WEEK) cbMoveToNext.isChecked = false
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
         }
         
-        fabMenuDay.setOnClickListener {
-            fabMenuOverlay.visibility = View.GONE
-            showTodoDialog(null)
-        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.add_task)
+            .setView(dialogView)
+            .setPositiveButton(R.string.save, null)
+            .setNegativeButton(R.string.cancel, null)
+            .create()
         
-        fabMenuWeek.setOnClickListener {
-            fabMenuOverlay.visibility = View.GONE
-            showWeekTodoDialog()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    tilTitle.error = "Task is required"
+                    etTitle.requestFocus()
+                    return@setOnClickListener
+                }
+                tilTitle.error = null
+                
+                val scope = scopes[spinnerScope.selectedItemPosition]
+                val dayCal = currentDate.clone() as Calendar
+                val createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                
+                val newTodo = when (scope) {
+                    TodoScope.DAY -> TodoItem(
+                        title = title,
+                        date = getDateString(dayCal),
+                        weekStartDate = null,
+                        scope = TodoScope.DAY,
+                        moveToNext = cbMoveToNext.isChecked,
+                        isImportant = cbImportant.isChecked,
+                        createdAt = createdAt
+                    )
+                    TodoScope.WEEK -> TodoItem(
+                        title = title,
+                        date = "",
+                        weekStartDate = getDateString(getWeekStartDate(dayCal)),
+                        scope = TodoScope.WEEK,
+                        moveToNext = cbMoveToNext.isChecked,
+                        isImportant = cbImportant.isChecked,
+                        createdAt = createdAt
+                    )
+                    TodoScope.MONTH -> TodoItem(
+                        title = title,
+                        date = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(dayCal.time),
+                        weekStartDate = null,
+                        scope = TodoScope.MONTH,
+                        moveToNext = false,
+                        isImportant = cbImportant.isChecked,
+                        createdAt = createdAt
+                    )
+                    TodoScope.YEAR -> TodoItem(
+                        title = title,
+                        date = dayCal.get(Calendar.YEAR).toString(),
+                        weekStartDate = null,
+                        scope = TodoScope.YEAR,
+                        moveToNext = false,
+                        isImportant = cbImportant.isChecked,
+                        createdAt = createdAt
+                    )
+                }
+                database.addTodo(newTodo)
+                loadData()
+                dialog.dismiss()
+            }
         }
-        
-        fabMenuMonth.setOnClickListener {
-            fabMenuOverlay.visibility = View.GONE
-            showMonthTodoDialog()
-        }
-        
-        fabMenuYear.setOnClickListener {
-            fabMenuOverlay.visibility = View.GONE
-            showYearTodoDialog()
-        }
+        dialog.show()
     }
     
     private fun loadTasksIntoContainer(container: LinearLayout, todos: List<TodoItem>) {
