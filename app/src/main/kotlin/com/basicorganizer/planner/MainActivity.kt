@@ -222,7 +222,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.WEEK -> currentDate.add(Calendar.WEEK_OF_YEAR, -1)
             ViewMode.MONTH -> currentDate.add(Calendar.MONTH, -1)
             ViewMode.YEAR -> currentDate.add(Calendar.YEAR, -1)
-            ViewMode.TASKS -> return // No navigation in tasks view
+            ViewMode.TASKS -> currentDate.add(Calendar.DAY_OF_MONTH, -1)
         }
         loadData()
     }
@@ -233,7 +233,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.WEEK -> currentDate.add(Calendar.WEEK_OF_YEAR, 1)
             ViewMode.MONTH -> currentDate.add(Calendar.MONTH, 1)
             ViewMode.YEAR -> currentDate.add(Calendar.YEAR, 1)
-            ViewMode.TASKS -> return // No navigation in tasks view
+            ViewMode.TASKS -> currentDate.add(Calendar.DAY_OF_MONTH, 1)
         }
         loadData()
     }
@@ -251,10 +251,6 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         monthView.visibility = if (currentViewMode == ViewMode.MONTH) View.VISIBLE else View.GONE
         yearView.visibility = if (currentViewMode == ViewMode.YEAR) View.VISIBLE else View.GONE
         tasksView.visibility = if (currentViewMode == ViewMode.TASKS) View.VISIBLE else View.GONE
-        
-        // Hide date header and navigation buttons in Tasks view
-        val dateHeader = findViewById<View>(R.id.date_header)
-        dateHeader.visibility = if (currentViewMode == ViewMode.TASKS) View.GONE else View.VISIBLE
         
         // Hide main FAB in Tasks view (it has its own FAB)
         fabAdd.visibility = if (currentViewMode == ViewMode.TASKS) View.GONE else View.VISIBLE
@@ -295,7 +291,12 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 tvDateValue.text = ""
             }
             ViewMode.TASKS -> {
-                // No date label needed for tasks view
+                tvDateLabel.text = SimpleDateFormat("EEEE", Locale.getDefault()).format(currentDate.time)
+                tvDateValue.text = SimpleDateFormat("d MMM", Locale.getDefault()).format(currentDate.time)
+                tvDateLabel.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+                tvDateLabel.setTypeface(null, Typeface.BOLD)
+                tvDateValue.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+                tvDateValue.setTypeface(null, Typeface.NORMAL)
             }
         }
     }
@@ -1176,28 +1177,28 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         tasksMonthContainer.removeAllViews()
         tasksYearContainer.removeAllViews()
         
-        // Update today title with current date
-        val today = Calendar.getInstance()
-        val dateStr = getDateString(today)
-        tvTasksTodayTitle.text = "To do: " + SimpleDateFormat("EEEE, d MMM", Locale.getDefault()).format(today.time)
+        // Use currentDate so tasks view follows day-level swipe navigation
+        val dayCal = currentDate.clone() as Calendar
+        val dateStr = getDateString(dayCal)
+        tvTasksTodayTitle.text = getString(R.string.tasks_today)
         
-        // Load today's tasks
-        val todayTodos = database.getTodosForDate(dateStr)
-        loadTasksIntoContainer(tasksTodayContainer, todayTodos)
+        // Load day's tasks
+        val dayTodos = database.getTodosForDate(dateStr)
+        loadTasksIntoContainer(tasksTodayContainer, dayTodos)
         
-        // Load week's tasks
-        val weekStart = getWeekStartDate(today)
+        // Load week's tasks (week containing currentDate)
+        val weekStart = getWeekStartDate(dayCal)
         val weekStartStr = getDateString(weekStart)
         val weekTodos = database.getTodosForWeek(weekStartStr)
         loadTasksIntoContainer(tasksWeekContainer, weekTodos)
         
         // Load month's tasks
-        val monthYear = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(today.time)
+        val monthYear = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(dayCal.time)
         val monthTodos = database.getTodosForMonth(monthYear)
         loadTasksIntoContainer(tasksMonthContainer, monthTodos)
         
         // Load year's goals
-        val yearStr = today.get(Calendar.YEAR).toString()
+        val yearStr = dayCal.get(Calendar.YEAR).toString()
         val yearTodos = database.getTodosForYear(yearStr)
         loadTasksIntoContainer(tasksYearContainer, yearTodos)
         
@@ -1247,18 +1248,36 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val todoView = LayoutInflater.from(this).inflate(R.layout.item_todo, container, false)
                 val cbTodo = todoView.findViewById<CheckBox>(R.id.cb_todo)
                 val tvTodo = todoView.findViewById<TextView>(R.id.tv_todo_title)
+                val ivMove = todoView.findViewById<ImageView>(R.id.iv_move_indicator)
                 
+                cbTodo.setOnCheckedChangeListener(null)
                 cbTodo.isChecked = todo.isCompleted
                 tvTodo.text = todo.title
                 
+                // Apply completed styling (strikethrough + grey)
+                if (todo.isCompleted) {
+                    tvTodo.setTextColor(ContextCompat.getColor(this, R.color.todo_checked))
+                    tvTodo.paintFlags = tvTodo.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+                } else {
+                    tvTodo.setTextColor(ContextCompat.getColor(this, R.color.todo_unchecked))
+                    tvTodo.paintFlags = tvTodo.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
+                }
+                tvTodo.setTypeface(
+                    null,
+                    if (todo.isImportant && !todo.isCompleted) Typeface.BOLD else Typeface.NORMAL
+                )
+                ivMove.visibility = if (todo.moveToNext && !todo.isCompleted) View.VISIBLE else View.GONE
+                
                 cbTodo.setOnCheckedChangeListener { _, isChecked ->
                     todo.isCompleted = isChecked
+                    todo.completedDate = if (isChecked) getDateString(currentDate) else null
                     database.updateTodo(todo)
                     loadData()
                 }
                 
-                todoView.setOnClickListener {
+                todoView.setOnLongClickListener {
                     showEditTodoDialog(todo)
+                    true
                 }
                 
                 container.addView(todoView)
