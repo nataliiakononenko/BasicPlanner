@@ -660,17 +660,36 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
 
     private fun loadWeekView() {
         val weekStart = getWeekStartDate(currentDate)
-        val dayCards = listOf(
-            weekView.findViewById<View>(R.id.day_monday),
-            weekView.findViewById<View>(R.id.day_tuesday),
-            weekView.findViewById<View>(R.id.day_wednesday),
-            weekView.findViewById<View>(R.id.day_thursday),
-            weekView.findViewById<View>(R.id.day_friday),
-            weekView.findViewById<View>(R.id.day_saturday),
-            weekView.findViewById<View>(R.id.day_sunday)
-        )
+        
+        // Map day cards and names based on first day of week setting
+        val dayCards: List<View>
+        val dayNames: List<String>
+        
+        if (firstDayOfWeek == Calendar.MONDAY) {
+            dayCards = listOf(
+                weekView.findViewById<View>(R.id.day_monday),
+                weekView.findViewById<View>(R.id.day_tuesday),
+                weekView.findViewById<View>(R.id.day_wednesday),
+                weekView.findViewById<View>(R.id.day_thursday),
+                weekView.findViewById<View>(R.id.day_friday),
+                weekView.findViewById<View>(R.id.day_saturday),
+                weekView.findViewById<View>(R.id.day_sunday)
+            )
+            dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        } else {
+            // Sunday first
+            dayCards = listOf(
+                weekView.findViewById<View>(R.id.day_sunday),
+                weekView.findViewById<View>(R.id.day_monday),
+                weekView.findViewById<View>(R.id.day_tuesday),
+                weekView.findViewById<View>(R.id.day_wednesday),
+                weekView.findViewById<View>(R.id.day_thursday),
+                weekView.findViewById<View>(R.id.day_friday),
+                weekView.findViewById<View>(R.id.day_saturday)
+            )
+            dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+        }
 
-        val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
         val dateFormat = SimpleDateFormat("d", Locale.getDefault())
         val today = Calendar.getInstance()
 
