@@ -26,6 +26,14 @@ class PlannerSettings(context: Context) {
         get() = prefs.getInt(KEY_FIRST_DAY, Calendar.MONDAY)
         set(value) = prefs.edit().putInt(KEY_FIRST_DAY, value).apply()
 
+    /** Behavior for completed tasks in the Tasks view. */
+    var completedTaskBehavior: CompletedTaskBehavior
+        get() = CompletedTaskBehavior.valueOf(
+            prefs.getString(KEY_COMPLETED_BEHAVIOR, CompletedTaskBehavior.MOVE_TO_BOTTOM.name)
+                ?: CompletedTaskBehavior.MOVE_TO_BOTTOM.name
+        )
+        set(value) = prefs.edit().putString(KEY_COMPLETED_BEHAVIOR, value.name).apply()
+
     /** Format a date for display using the current pattern. */
     fun formatDisplay(date: Date): String =
         SimpleDateFormat(dateFormatPattern, Locale.getDefault()).format(date)
@@ -40,6 +48,7 @@ class PlannerSettings(context: Context) {
         private const val PREFS_NAME = "planner_settings"
         private const val KEY_DATE_FORMAT = "date_format"
         private const val KEY_FIRST_DAY = "first_day_of_week"
+        private const val KEY_COMPLETED_BEHAVIOR = "completed_task_behavior"
 
         const val DEFAULT_DATE_FORMAT = "dd.MM.yyyy"
 
@@ -50,4 +59,11 @@ class PlannerSettings(context: Context) {
             "yyyy-MM-dd" to "2025-12-31 (ISO)"
         )
     }
+}
+
+/** Controls what happens to completed tasks in the Tasks view. */
+enum class CompletedTaskBehavior {
+    MOVE_TO_BOTTOM,
+    DO_NOTHING,
+    REMOVE
 }

@@ -142,6 +142,10 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         val rgFirstDay = dialogView.findViewById<RadioGroup>(R.id.rg_first_day)
         val rbMonday = dialogView.findViewById<RadioButton>(R.id.rb_monday)
         val rbSunday = dialogView.findViewById<RadioButton>(R.id.rb_sunday)
+        val rgCompletedBehavior = dialogView.findViewById<RadioGroup>(R.id.rg_completed_behavior)
+        val rbCompletedMoveBottom = dialogView.findViewById<RadioButton>(R.id.rb_completed_move_bottom)
+        val rbCompletedDoNothing = dialogView.findViewById<RadioButton>(R.id.rb_completed_do_nothing)
+        val rbCompletedRemove = dialogView.findViewById<RadioButton>(R.id.rb_completed_remove)
 
         // Populate date format options dynamically
         val currentPattern = settings.dateFormatPattern
@@ -158,6 +162,13 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         // First day of week
         if (settings.firstDayOfWeek == Calendar.SUNDAY) rbSunday.isChecked = true else rbMonday.isChecked = true
 
+        // Completed task behavior
+        when (settings.completedTaskBehavior) {
+            CompletedTaskBehavior.MOVE_TO_BOTTOM -> rbCompletedMoveBottom.isChecked = true
+            CompletedTaskBehavior.DO_NOTHING -> rbCompletedDoNothing.isChecked = true
+            CompletedTaskBehavior.REMOVE -> rbCompletedRemove.isChecked = true
+        }
+
         AlertDialog.Builder(this)
             .setTitle(R.string.settings)
             .setView(dialogView)
@@ -168,6 +179,12 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val newFirstDay = if (rgFirstDay.checkedRadioButtonId == R.id.rb_sunday) Calendar.SUNDAY else Calendar.MONDAY
                 settings.firstDayOfWeek = newFirstDay
                 firstDayOfWeek = newFirstDay
+                val newCompletedBehavior = when (rgCompletedBehavior.checkedRadioButtonId) {
+                    R.id.rb_completed_do_nothing -> CompletedTaskBehavior.DO_NOTHING
+                    R.id.rb_completed_remove -> CompletedTaskBehavior.REMOVE
+                    else -> CompletedTaskBehavior.MOVE_TO_BOTTOM
+                }
+                settings.completedTaskBehavior = newCompletedBehavior
                 loadData()
             }
             .setNegativeButton(R.string.cancel, null)
@@ -1236,7 +1253,15 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     }
     
     private fun loadTasksIntoContainer(container: LinearLayout, todos: List<TodoItem>) {
-        if (todos.isEmpty()) {
+        // Apply completed task behavior
+        val behavior = settings.completedTaskBehavior
+        val visibleTodos = when (behavior) {
+            CompletedTaskBehavior.REMOVE -> todos.filter { !it.isCompleted }
+            CompletedTaskBehavior.DO_NOTHING -> todos.sortedBy { it.createdAt }
+            CompletedTaskBehavior.MOVE_TO_BOTTOM -> todos // DB already sorts completed to bottom
+        }
+        
+        if (visibleTodos.isEmpty()) {
             val noTasksView = TextView(this)
             noTasksView.text = getString(R.string.no_todos)
             noTasksView.textSize = 14f
@@ -1244,7 +1269,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             noTasksView.setPadding(0, 8, 0, 8)
             container.addView(noTasksView)
         } else {
-            for (todo in todos) {
+            for (todo in visibleTodos) {
                 val todoView = LayoutInflater.from(this).inflate(R.layout.item_todo, container, false)
                 val cbTodo = todoView.findViewById<CheckBox>(R.id.cb_todo)
                 val tvTodo = todoView.findViewById<TextView>(R.id.tv_todo_title)
@@ -1271,8 +1296,36 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 cbTodo.setOnCheckedChangeListener { _, isChecked ->
                     todo.isCompleted = isChecked
                     todo.completedDate = if (isChecked) getDateString(currentDate) else null
-                    database.updateTodo(todo)
-                    loadData()
+                    when (settings.completedTaskBehavior) {
+                        CompletedTaskBehavior.REMOVE -> {
+                            if (isChecked) {
+                                database.deleteTodo(todo.id)
+                            } else {
+                                database.updateTodo(todo)
+                            }
+                            loadData()
+                        }
+                        CompletedTaskBehavior.MOVE_TO_BOTTOM -> {
+                            database.updateTodo(todo)
+                            loadData()
+                        }
+                        CompletedTaskBehavior.DO_NOTHING -> {
+                            database.updateTodo(todo)
+                            // Update styling in-place without re-sorting
+                            if (isChecked) {
+                                tvTodo.setTextColor(ContextCompat.getColor(this, R.color.todo_checked))
+                                tvTodo.paintFlags = tvTodo.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+                            } else {
+                                tvTodo.setTextColor(ContextCompat.getColor(this, R.color.todo_unchecked))
+                                tvTodo.paintFlags = tvTodo.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
+                            }
+                            tvTodo.setTypeface(
+                                null,
+                                if (todo.isImportant && !isChecked) Typeface.BOLD else Typeface.NORMAL
+                            )
+                            ivMove.visibility = if (todo.moveToNext && !isChecked) View.VISIBLE else View.GONE
+                        }
+                    }
                 }
                 
                 todoView.setOnLongClickListener {

@@ -54,6 +54,11 @@
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     
+    <string name="settings_completed_tasks">Completed tasks</string>
+    <string name="settings_completed_move_bottom">Move to bottom of list</string>
+    <string name="settings_completed_do_nothing">Do nothing</string>
+    <string name="settings_completed_remove">Remove</string>
+    
     <string name="view_tasks">Tasks</string>
     <string name="tasks_today">To do:</string>
     <string name="tasks_week">To do for this week</string>

@@ -23,6 +23,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/tasks_today"
                 android:textSize="13sp"
+                android:textStyle="bold"
                 android:textColor="@color/text_secondary"
                 android:layout_marginBottom="4dp" />
 
@@ -46,6 +47,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/tasks_week"
                 android:textSize="13sp"
+                android:textStyle="bold"
                 android:textColor="@color/text_secondary"
                 android:layout_marginBottom="4dp" />
 
@@ -69,6 +71,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/tasks_month"
                 android:textSize="13sp"
+                android:textStyle="bold"
                 android:textColor="@color/text_secondary"
                 android:layout_marginBottom="4dp" />
 
@@ -92,6 +95,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/tasks_year"
                 android:textSize="13sp"
+                android:textStyle="bold"
                 android:textColor="@color/text_secondary"
                 android:layout_marginBottom="4dp" />
 
@@ -113,7 +117,6 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
         android:src="@android:drawable/ic_input_add"
-        app:tint="@color/white"
         app:backgroundTint="@color/colorPrimary" />
 
     <!-- FAB Menu Overlay (initially hidden) -->

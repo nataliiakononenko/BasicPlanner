@@ -54,6 +54,41 @@
                 android:text="@string/settings_sunday" />
         </RadioGroup>
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_completed_tasks"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginTop="24dp" />
+
+        <RadioGroup
+            android:id="@+id/rg_completed_behavior"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp">
+
+            <RadioButton
+                android:id="@+id/rb_completed_move_bottom"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_completed_move_bottom" />
+
+            <RadioButton
+                android:id="@+id/rb_completed_do_nothing"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_completed_do_nothing" />
+
+            <RadioButton
+                android:id="@+id/rb_completed_remove"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_completed_remove" />
+        </RadioGroup>
+
     </LinearLayout>
 
 </ScrollView>
