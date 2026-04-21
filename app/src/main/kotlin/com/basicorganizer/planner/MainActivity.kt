@@ -680,9 +680,17 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             val dateStr = getDateString(dayCal)
 
             val card = dayCards[i]
-            card.findViewById<TextView>(R.id.tv_day_name).text = dayNames[i]
-            card.findViewById<TextView>(R.id.tv_day_number).text = dateFormat.format(dayCal.time)
-            
+            val tvDayName = card.findViewById<TextView>(R.id.tv_day_name)
+            val tvDayNumber = card.findViewById<TextView>(R.id.tv_day_number)
+            tvDayName.text = dayNames[i]
+            tvDayNumber.text = dateFormat.format(dayCal.time)
+
+            // Highlight Sunday in primary color (no bold).
+            val isSunday = dayCal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
+            val dayColor = ContextCompat.getColor(this, if (isSunday) R.color.colorPrimary else R.color.text_primary)
+            tvDayName.setTextColor(dayColor)
+            tvDayNumber.setTextColor(dayColor)
+
             // Add border to current day
             val isToday = dayCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
                           dayCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
@@ -812,11 +820,13 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             listOf("S", "M", "T", "W", "T", "F", "S")
         }
         
-        for (day in weekdays) {
+        for (i in weekdays.indices) {
             val tv = TextView(this)
-            tv.text = day
+            tv.text = weekdays[i]
             tv.textSize = 12f
-            tv.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            // Make Sunday header primary color
+            val isSunday = if (firstDayOfWeek == Calendar.MONDAY) i == 6 else i == 0
+            tv.setTextColor(ContextCompat.getColor(this, if (isSunday) R.color.colorPrimary else R.color.text_secondary))
             tv.gravity = android.view.Gravity.CENTER
             val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             tv.layoutParams = params
@@ -880,7 +890,14 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                     val dateStr = getDateString(calendar)
 
                     val dayView = LayoutInflater.from(this).inflate(R.layout.item_month_day, weekRow, false)
-                    dayView.findViewById<TextView>(R.id.tv_day).text = currentDay.toString()
+                    val tvDay = dayView.findViewById<TextView>(R.id.tv_day)
+                    tvDay.text = currentDay.toString()
+
+                    // Highlight Sundays in primary color (no bold).
+                    val isSunday = calendar.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
+                    tvDay.setTextColor(
+                        ContextCompat.getColor(this, if (isSunday) R.color.colorPrimary else R.color.text_primary)
+                    )
 
                     // Check for todos and show indicator
                     val hasTodos = database.hasTodosForDate(dateStr)
