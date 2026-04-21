@@ -1030,8 +1030,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             // Add empty space for week number column
             val emptySpace = View(this)
             val emptyParams = LinearLayout.LayoutParams(
-                (12 * resources.displayMetrics.density).toInt(),
-                (12 * resources.displayMetrics.density).toInt()
+                (13 * resources.displayMetrics.density).toInt(),
+                (13 * resources.displayMetrics.density).toInt()
             )
             emptySpace.layoutParams = emptyParams
             dayNamesHeader.addView(emptySpace)
@@ -1046,12 +1046,12 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             for (i in dayNames.indices) {
                 val dayNameView = TextView(this)
                 dayNameView.text = dayNames[i]
-                dayNameView.textSize = 6f
+                dayNameView.textSize = 8f
                 dayNameView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
                 dayNameView.gravity = android.view.Gravity.CENTER
                 val params = LinearLayout.LayoutParams(
-                    (12 * resources.displayMetrics.density).toInt(),
-                    (12 * resources.displayMetrics.density).toInt()
+                    (13 * resources.displayMetrics.density).toInt(),
+                    (13 * resources.displayMetrics.density).toInt()
                 )
                 dayNameView.layoutParams = params
                 
@@ -1087,13 +1087,14 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 val weekNumber = monthCal.get(Calendar.WEEK_OF_YEAR)
                 val weekNumView = TextView(this)
                 weekNumView.text = weekNumber.toString()
-                weekNumView.textSize = 6f
+                weekNumView.textSize = 7f
                 weekNumView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                weekNumView.alpha = 0.6f
                 weekNumView.gravity = android.view.Gravity.CENTER
                 weekNumView.setPadding(2, 0, 2, 0)
                 val weekNumParams = LinearLayout.LayoutParams(
-                    (12 * resources.displayMetrics.density).toInt(),
-                    (12 * resources.displayMetrics.density).toInt()
+                    (13 * resources.displayMetrics.density).toInt(),
+                    (13 * resources.displayMetrics.density).toInt()
                 )
                 weekNumView.layoutParams = weekNumParams
                 
@@ -1111,8 +1112,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                         // Empty cell
                         val emptyView = View(this)
                         val params = LinearLayout.LayoutParams(
-                            (12 * resources.displayMetrics.density).toInt(),
-                            (12 * resources.displayMetrics.density).toInt()
+                            (13 * resources.displayMetrics.density).toInt(),
+                            (13 * resources.displayMetrics.density).toInt()
                         )
                         emptyView.layoutParams = params
                         weekRow.addView(emptyView)
@@ -1122,7 +1123,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                         
                         val dayView = TextView(this)
                         dayView.text = currentDay.toString()
-                        dayView.textSize = 7f
+                        dayView.textSize = 9f
                         
                         // Make Sunday day numbers primary color
                         val isSunday = monthCal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
@@ -1149,8 +1150,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                         }
                         
                         val params = LinearLayout.LayoutParams(
-                            (12 * resources.displayMetrics.density).toInt(),
-                            (12 * resources.displayMetrics.density).toInt()
+                            (13 * resources.displayMetrics.density).toInt(),
+                            (13 * resources.displayMetrics.density).toInt()
                         )
                         dayView.layoutParams = params
                         weekRow.addView(dayView)
@@ -1165,7 +1166,6 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             params.width = 0
             params.height = GridLayout.LayoutParams.WRAP_CONTENT
             params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-            params.setMargins(4, 4, 4, 4)
             monthView.layoutParams = params
             yearGrid.addView(monthView)
         }
