@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private lateinit var weekView: View
     private lateinit var monthView: View
     private lateinit var yearView: View
+    private lateinit var tasksView: View
     private lateinit var fabAdd: FloatingActionButton
 
     private lateinit var database: PlannerDatabase
@@ -49,7 +50,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     private var currentViewMode: ViewMode = ViewMode.WEEK
     private var firstDayOfWeek: Int = Calendar.MONDAY
 
-    enum class ViewMode { DAY, WEEK, MONTH, YEAR }
+    enum class ViewMode { DAY, WEEK, MONTH, YEAR, TASKS }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,6 +77,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         weekView = findViewById(R.id.week_view)
         monthView = findViewById(R.id.month_view)
         yearView = findViewById(R.id.year_view)
+        tasksView = findViewById(R.id.tasks_view)
         fabAdd = findViewById(R.id.fab_add)
 
         fabAdd.setOnClickListener { 
@@ -84,6 +86,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                 ViewMode.WEEK -> showTodoDialog(null)
                 ViewMode.MONTH -> showMonthTodoDialog()
                 ViewMode.YEAR -> showYearTodoDialog()
+                ViewMode.TASKS -> {} // FAB is hidden in tasks view
             }
         }
     }
@@ -120,6 +123,10 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         }
         navView.findViewById<View>(R.id.nav_year_view).setOnClickListener {
             switchToView(ViewMode.YEAR)
+            drawerLayout.closeDrawer(GravityCompat.START)
+        }
+        navView.findViewById<View>(R.id.nav_tasks).setOnClickListener {
+            switchToView(ViewMode.TASKS)
             drawerLayout.closeDrawer(GravityCompat.START)
         }
         navView.findViewById<View>(R.id.nav_settings).setOnClickListener {
@@ -178,8 +185,8 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        // Hide zoom out button when in year view (already at top level)
-        menu.findItem(R.id.action_zoom_out)?.isVisible = currentViewMode != ViewMode.YEAR
+        // Hide zoom out button when in year view or tasks view
+        menu.findItem(R.id.action_zoom_out)?.isVisible = currentViewMode != ViewMode.YEAR && currentViewMode != ViewMode.TASKS
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -192,6 +199,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
                     ViewMode.WEEK -> switchToView(ViewMode.MONTH)
                     ViewMode.MONTH -> switchToView(ViewMode.YEAR)
                     ViewMode.YEAR -> {} // Already at top level, do nothing
+                    ViewMode.TASKS -> {} // No zoom out in tasks view
                 }
                 true
             }
@@ -214,6 +222,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.WEEK -> currentDate.add(Calendar.WEEK_OF_YEAR, -1)
             ViewMode.MONTH -> currentDate.add(Calendar.MONTH, -1)
             ViewMode.YEAR -> currentDate.add(Calendar.YEAR, -1)
+            ViewMode.TASKS -> return // No navigation in tasks view
         }
         loadData()
     }
@@ -224,6 +233,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.WEEK -> currentDate.add(Calendar.WEEK_OF_YEAR, 1)
             ViewMode.MONTH -> currentDate.add(Calendar.MONTH, 1)
             ViewMode.YEAR -> currentDate.add(Calendar.YEAR, 1)
+            ViewMode.TASKS -> return // No navigation in tasks view
         }
         loadData()
     }
@@ -240,6 +250,14 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         weekView.visibility = if (currentViewMode == ViewMode.WEEK) View.VISIBLE else View.GONE
         monthView.visibility = if (currentViewMode == ViewMode.MONTH) View.VISIBLE else View.GONE
         yearView.visibility = if (currentViewMode == ViewMode.YEAR) View.VISIBLE else View.GONE
+        tasksView.visibility = if (currentViewMode == ViewMode.TASKS) View.VISIBLE else View.GONE
+        
+        // Hide date header and navigation buttons in Tasks view
+        val dateHeader = findViewById<View>(R.id.date_header)
+        dateHeader.visibility = if (currentViewMode == ViewMode.TASKS) View.GONE else View.VISIBLE
+        
+        // Hide main FAB in Tasks view (it has its own FAB)
+        fabAdd.visibility = if (currentViewMode == ViewMode.TASKS) View.GONE else View.VISIBLE
     }
 
     private fun loadData() {
@@ -249,6 +267,7 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.WEEK -> loadWeekView()
             ViewMode.MONTH -> loadMonthView()
             ViewMode.YEAR -> loadYearView()
+            ViewMode.TASKS -> loadTasksView()
         }
     }
 
@@ -274,6 +293,9 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
             ViewMode.YEAR -> {
                 tvDateLabel.text = currentDate.get(Calendar.YEAR).toString()
                 tvDateValue.text = ""
+            }
+            ViewMode.TASKS -> {
+                // No date label needed for tasks view
             }
         }
     }
@@ -1138,6 +1160,194 @@ class MainActivity : AppCompatActivity(), TodoAdapter.OnTodoInteractionListener 
         
         tvNoYearTodos.visibility = if (yearTodos.isEmpty()) View.VISIBLE else View.GONE
         rvYearTodos.visibility = if (yearTodos.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun loadTasksView() {
+        // Get containers
+        val tasksTodayContainer = tasksView.findViewById<LinearLayout>(R.id.tasks_today_container)
+        val tasksWeekContainer = tasksView.findViewById<LinearLayout>(R.id.tasks_week_container)
+        val tasksMonthContainer = tasksView.findViewById<LinearLayout>(R.id.tasks_month_container)
+        val tasksYearContainer = tasksView.findViewById<LinearLayout>(R.id.tasks_year_container)
+        val tvTasksTodayTitle = tasksView.findViewById<TextView>(R.id.tv_tasks_today_title)
+        
+        // Clear containers
+        tasksTodayContainer.removeAllViews()
+        tasksWeekContainer.removeAllViews()
+        tasksMonthContainer.removeAllViews()
+        tasksYearContainer.removeAllViews()
+        
+        // Update today title with current date
+        val today = Calendar.getInstance()
+        val dateStr = getDateString(today)
+        tvTasksTodayTitle.text = "To do: " + SimpleDateFormat("EEEE, d MMM", Locale.getDefault()).format(today.time)
+        
+        // Load today's tasks
+        val todayTodos = database.getTodosForDate(dateStr)
+        loadTasksIntoContainer(tasksTodayContainer, todayTodos)
+        
+        // Load week's tasks
+        val weekStart = getWeekStartDate(today)
+        val weekStartStr = getDateString(weekStart)
+        val weekTodos = database.getTodosForWeek(weekStartStr)
+        loadTasksIntoContainer(tasksWeekContainer, weekTodos)
+        
+        // Load month's tasks
+        val monthYear = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(today.time)
+        val monthTodos = database.getTodosForMonth(monthYear)
+        loadTasksIntoContainer(tasksMonthContainer, monthTodos)
+        
+        // Load year's goals
+        val yearStr = today.get(Calendar.YEAR).toString()
+        val yearTodos = database.getTodosForYear(yearStr)
+        loadTasksIntoContainer(tasksYearContainer, yearTodos)
+        
+        // Setup FAB menu
+        val fabAddTask = tasksView.findViewById<FloatingActionButton>(R.id.fab_add_task)
+        val fabMenuOverlay = tasksView.findViewById<LinearLayout>(R.id.fab_menu_overlay)
+        val fabMenuDay = tasksView.findViewById<TextView>(R.id.fab_menu_day)
+        val fabMenuWeek = tasksView.findViewById<TextView>(R.id.fab_menu_week)
+        val fabMenuMonth = tasksView.findViewById<TextView>(R.id.fab_menu_month)
+        val fabMenuYear = tasksView.findViewById<TextView>(R.id.fab_menu_year)
+        
+        fabAddTask.setOnClickListener {
+            fabMenuOverlay.visibility = if (fabMenuOverlay.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+        
+        fabMenuDay.setOnClickListener {
+            fabMenuOverlay.visibility = View.GONE
+            showTodoDialog(null)
+        }
+        
+        fabMenuWeek.setOnClickListener {
+            fabMenuOverlay.visibility = View.GONE
+            showWeekTodoDialog()
+        }
+        
+        fabMenuMonth.setOnClickListener {
+            fabMenuOverlay.visibility = View.GONE
+            showMonthTodoDialog()
+        }
+        
+        fabMenuYear.setOnClickListener {
+            fabMenuOverlay.visibility = View.GONE
+            showYearTodoDialog()
+        }
+    }
+    
+    private fun loadTasksIntoContainer(container: LinearLayout, todos: List<TodoItem>) {
+        if (todos.isEmpty()) {
+            val noTasksView = TextView(this)
+            noTasksView.text = getString(R.string.no_todos)
+            noTasksView.textSize = 14f
+            noTasksView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            noTasksView.setPadding(0, 8, 0, 8)
+            container.addView(noTasksView)
+        } else {
+            for (todo in todos) {
+                val todoView = LayoutInflater.from(this).inflate(R.layout.item_todo, container, false)
+                val cbTodo = todoView.findViewById<CheckBox>(R.id.cb_todo)
+                val tvTodo = todoView.findViewById<TextView>(R.id.tv_todo_title)
+                
+                cbTodo.isChecked = todo.isCompleted
+                tvTodo.text = todo.title
+                
+                cbTodo.setOnCheckedChangeListener { _, isChecked ->
+                    todo.isCompleted = isChecked
+                    database.updateTodo(todo)
+                    loadData()
+                }
+                
+                todoView.setOnClickListener {
+                    showEditTodoDialog(todo)
+                }
+                
+                container.addView(todoView)
+            }
+        }
+    }
+    
+    private fun showWeekTodoDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
+        val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
+        val tilTitle = dialogView.findViewById<TextInputLayout>(R.id.til_todo_title)
+        val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
+        val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.add_todo)
+            .setView(dialogView)
+            .setPositiveButton(R.string.save, null)
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    tilTitle.error = "Task is required"
+                    etTitle.requestFocus()
+                    return@setOnClickListener
+                }
+                tilTitle.error = null
+                val today = Calendar.getInstance()
+                val weekStart = getWeekStartDate(today)
+                val weekStartStr = getDateString(weekStart)
+                val newTodo = TodoItem(
+                    title = title,
+                    date = "",
+                    weekStartDate = weekStartStr,
+                    scope = TodoScope.WEEK,
+                    moveToNext = cbMoveToNext.isChecked,
+                    isImportant = cbImportant.isChecked,
+                    createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                )
+                database.addTodo(newTodo)
+                loadData()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+    
+    private fun showEditTodoDialog(todo: TodoItem) {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_todo, null)
+        val etTitle = dialogView.findViewById<EditText>(R.id.et_todo_title)
+        val tilTitle = dialogView.findViewById<TextInputLayout>(R.id.til_todo_title)
+        val cbImportant = dialogView.findViewById<CheckBox>(R.id.cb_important)
+        val cbMoveToNext = dialogView.findViewById<CheckBox>(R.id.cb_move_to_next)
+        
+        etTitle.setText(todo.title)
+        cbImportant.isChecked = todo.isImportant
+        cbMoveToNext.isChecked = todo.moveToNext
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.edit_todo)
+            .setView(dialogView)
+            .setPositiveButton(R.string.save, null)
+            .setNegativeButton(R.string.cancel, null)
+            .setNeutralButton(R.string.delete) { _, _ ->
+                database.deleteTodo(todo.id)
+                loadData()
+            }
+            .create()
+        
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    tilTitle.error = "Task is required"
+                    etTitle.requestFocus()
+                    return@setOnClickListener
+                }
+                tilTitle.error = null
+                todo.title = title
+                todo.isImportant = cbImportant.isChecked
+                database.updateTodo(todo)
+                loadData()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     private fun showAddOptionsDialog() {

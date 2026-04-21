@@ -53,4 +53,11 @@
     
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
+    
+    <string name="view_tasks">Tasks</string>
+    <string name="tasks_today">To do:</string>
+    <string name="tasks_week">To do for this week</string>
+    <string name="tasks_month">Tasks for the month</string>
+    <string name="tasks_year">Goals for the year</string>
+    <string name="add_task">Add Task</string>
 </resources>
